@@ -1,0 +1,17 @@
+build/
+*.o
+*.a
+*.dll
+*.exe
+*.so
+*.dylib
+
+__pycache__/
+*.pyc
+*.pyd
+
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

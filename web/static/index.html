@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dispatch Simulator</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header>
+    <h1>Emergency Dispatch Simulator</h1>
+    <span id="status" class="status">connecting...</span>
+  </header>
+
+  <main>
+    <section id="map-wrap">
+      <canvas id="map" width="900" height="640"></canvas>
+    </section>
+
+    <aside id="hud">
+      <h2>Metrics</h2>
+      <dl class="metrics">
+        <dt>sim time</dt><dd id="m-time">0.0</dd>
+        <dt>total</dt><dd id="m-total">0</dd>
+        <dt>resolved</dt><dd id="m-resolved">0</dd>
+        <dt>pending</dt><dd id="m-pending">0</dd>
+        <dt>idle units</dt><dd id="m-idle">0</dd>
+        <dt>active units</dt><dd id="m-active">0</dd>
+        <dt>avg response</dt><dd id="m-avg">0.00s</dd>
+        <dt>road components</dt><dd id="m-roadc">0</dd>
+        <dt>dispatch calls</dt><dd id="m-dispatch">0</dd>
+        <dt>PQ ops</dt><dd id="m-pq">0</dd>
+        <dt>huffman ratio</dt><dd id="m-huff">0.00</dd>
+        <dt>SA suffixes</dt><dd id="m-sa">0</dd>
+      </dl>
+      <h2>Radio log</h2>
+      <pre id="log" class="log"></pre>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="controls">
+      <button id="pause">Pause</button>
+      <button id="spawn">Force spawn</button>
+      <label class="slider">
+        spawn/s <input id="rate" type="range" min="0" max="2" step="0.05" value="0.4" />
+        <span id="rate-val">0.40</span>
+      </label>
+    </div>
+    <div class="search">
+      <input id="q" type="text" placeholder="search streets..." autocomplete="off" />
+      <label><input id="fuzzy" type="checkbox" /> fuzzy</label>
+      <ul id="matches" class="matches"></ul>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
