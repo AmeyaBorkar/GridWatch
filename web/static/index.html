@@ -15,6 +15,13 @@
   <main>
     <section id="map-wrap">
       <canvas id="map" width="900" height="640"></canvas>
+      <div class="legend" aria-label="map legend">
+        <div class="legend-row"><span class="legend-pill amb">H</span> Hospital · <span class="legend-pill amb">A</span> Ambulance</div>
+        <div class="legend-row"><span class="legend-pill fire">F</span> Fire station · <span class="legend-pill fire">F</span> Truck</div>
+        <div class="legend-row"><span class="legend-pill pol">P</span> Police station · <span class="legend-pill pol">P</span> Cruiser</div>
+        <div class="legend-row"><span class="sev sev-low">●</span> low <span class="sev sev-med">●</span> med <span class="sev sev-hi">●</span> high incident</div>
+        <div class="legend-row legend-dim">red line = blocked road</div>
+      </div>
     </section>
 
     <aside id="hud">
