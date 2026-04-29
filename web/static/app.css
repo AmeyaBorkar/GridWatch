@@ -42,7 +42,7 @@ main {
   grid-template-columns: 1fr 320px;
   gap: 0.5rem;
   padding: 0.5rem;
-  height: calc(100vh - 110px);
+  height: calc(100vh - 138px);
 }
 
 #map-wrap {
@@ -254,3 +254,23 @@ footer {
 .legend-pill.amb  { background: var(--amb); }
 .legend-pill.fire { background: var(--fire); }
 .legend-pill.pol  { background: var(--pol); }
+
+.hintbar {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.35rem 1rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.hintbar kbd {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0 0.3em;
+  font-size: 0.72rem;
+  color: var(--fg);
+}

@@ -313,9 +313,21 @@ aboutGo.addEventListener('click', hideAbout);
 aboutClose.addEventListener('click', hideAbout);
 aboutEl.addEventListener('click', (e) => { if (e.target === aboutEl) hideAbout(); });
 window.addEventListener('keydown', (e) => {
-  if (e.key === '?' && !aboutEl.hidden) hideAbout();
-  else if (e.key === '?' && document.activeElement !== qEl) showAbout();
-  else if (e.key === 'Escape' && !aboutEl.hidden) hideAbout();
+  const inSearch = document.activeElement === qEl;
+  if (e.key === '?' && !aboutEl.hidden) { hideAbout(); return; }
+  if (e.key === 'Escape' && !aboutEl.hidden) { hideAbout(); return; }
+  if (inSearch) return;
+  if (e.key === '?') { showAbout(); e.preventDefault(); }
+  else if (e.key === '/') { qEl.focus(); qEl.select(); e.preventDefault(); }
+  else if (e.key === ' ') {
+    sendControl({ paused: !(lastState && lastState.paused) });
+    e.preventDefault();
+  }
+  else if (e.key === 's' || e.key === 'S') { sendControl({ force_spawn: true }); }
+  else if (e.key === 'f' || e.key === 'F') {
+    fuzzyEl.checked = !fuzzyEl.checked;
+    runSearch();
+  }
 });
 try { if (!localStorage.getItem(ABOUT_KEY)) showAbout(); } catch { showAbout(); }
 

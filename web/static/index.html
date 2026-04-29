@@ -72,19 +72,22 @@
 
   <footer>
     <div class="controls">
-      <button id="pause">Pause</button>
-      <button id="spawn">Force spawn</button>
+      <button id="pause" title="Space">Pause</button>
+      <button id="spawn" title="S">Force spawn</button>
       <label class="slider">
         spawn/s <input id="rate" type="range" min="0" max="2" step="0.05" value="0.4" />
         <span id="rate-val">0.40</span>
       </label>
     </div>
     <div class="search">
-      <input id="q" type="text" placeholder="search streets..." autocomplete="off" />
+      <input id="q" type="text" placeholder="search streets... (/ to focus)" autocomplete="off" />
       <label><input id="fuzzy" type="checkbox" /> fuzzy</label>
       <ul id="matches" class="matches"></ul>
     </div>
   </footer>
+  <div class="hintbar">
+    <kbd>Space</kbd> pause · <kbd>S</kbd> spawn · <kbd>/</kbd> search · <kbd>F</kbd> fuzzy · <kbd>?</kbd> help · <kbd>Esc</kbd> close
+  </div>
 
   <div id="about" class="about" hidden>
     <div class="about-card">
