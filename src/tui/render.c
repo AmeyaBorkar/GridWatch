@@ -454,11 +454,21 @@ static void render_search(const tui_state_t* st) {
 
 static void render_hint(const sim_t* sim, double spawn_rate) {
     move_to(HINT_ROW + 1, 1);
+    clear_row(HINT_ROW + 1, 1, TOTAL_W);
+    move_to(HINT_ROW + 1, 1);
     fg(140, 145, 160);
-    buf_printf("[SPACE] %s  [S] spawn  [+/-] rate=%.1f/s  [TAB] %s  [ENTER] go  [Q] quit",
-               sim_is_paused(sim) ? "resume" : "pause",
-               spawn_rate,
-               "fuzzy");
+    buf_puts(" Map: ");
+    fg(240, 90, 100);  buf_puts("H/A");
+    fg(140, 145, 160); buf_puts(" hosp+amb  ");
+    fg(245, 160, 70);  buf_puts("F");
+    fg(140, 145, 160); buf_puts(" fire  ");
+    fg(100, 150, 240); buf_puts("P");
+    fg(140, 145, 160); buf_puts(" police  ");
+    fg(245, 80, 80);   buf_puts("!");
+    fg(140, 145, 160); buf_printf(" incident   |  [SPACE] %s  [S] spawn  [+/-] %.1f/s  [TAB] %s  [?] help  [Q] quit",
+                                 sim_is_paused(sim) ? "resume" : "pause",
+                                 spawn_rate,
+                                 "fuzzy");
     reset_sgr();
 }
 
