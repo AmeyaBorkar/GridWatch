@@ -1,9 +1,33 @@
-# Emergency Dispatch Simulator
+# GridWatch — Emergency Dispatch Simulator
 
-A C11 library + terminal app built around the syllabus for **Advanced Data Structures**.
-The simulation models a grid city where ambulances, fire trucks, and police units
-are dispatched to emergencies using the data structures from every unit of the
-syllabus.
+A C11 library + terminal app + Python-served web app built around the
+syllabus for **Advanced Data Structures**. The simulation models a grid
+city where ambulances, fire trucks, and police units are dispatched to
+emergencies using the data structures from every unit of the syllabus.
+
+> 📖 **Read [`docs/CONCEPTS.md`](docs/CONCEPTS.md)** for the plain-English
+> walkthrough of *what every metric on screen actually represents*. That
+> doc is the best starting point if you've never seen the simulator
+> before.
+
+## Quickstart
+
+```bash
+# 1. Build the library + the terminal UI
+bash build.sh             # produces build/dispatch.exe
+
+# 2. Either run it in your terminal:
+./build/dispatch.exe      # press '?' for an in-app concept tour
+
+# 3. ...or run the web UI (recommended for a richer view):
+bash build.sh shared      # produces build/libdispatch.dll
+python web/server.py      # then open http://127.0.0.1:5000
+```
+
+Both UIs are thin views over the same `libdispatch` shared library.
+The web UI shows hover tooltips, a live "Data structures in action"
+panel, and an onboarding overlay; the terminal UI shows the same
+information in colour-coded ANSI with a `?` help screen.
 
 ```
       ┌─────────────┐
@@ -29,15 +53,42 @@ The core library is deliberately **frontend-agnostic** — the same
 `libdispatch.dll` can be bound from Python (`ctypes` / `cffi`) or served
 behind a small web API later without touching the simulation or DS code.
 
+## What you'll see
+
+Once the simulator is running, every number on the HUD is a real
+counter. Pause the sim and the **PQ ops** number stops climbing;
+resume and watch it spike whenever a dispatch is computed.
+
+| HUD entry | Driven by |
+|-----------|-----------|
+| PQ ops | `heap_fib_*` priority queue inside Dijkstra |
+| dispatch calls | every nearest-unit + Dijkstra evaluation |
+| Huffman ratio | `huffman_*` rebuilt over the radio log |
+| SA suffixes | `str_sa_*` index of the radio log |
+| road components | `misc_dsu_*` over the (unblocked) road graph |
+| autocomplete dropdown | `str_trie_*` prefix walk |
+| fuzzy matches | `str_fuzzy_*` BK-tree edit-distance walk |
+
 ## Build
 
-Requires a C11 compiler (MSYS2 GCC tested) and GNU make.
+Requires a C11 compiler (MSYS2 GCC tested). GNU make is **optional** —
+a portable `build.sh` is included for systems without it.
 
+```bash
+bash build.sh           # builds build/libdispatch.a + build/dispatch.exe
+bash build.sh shared    # builds build/libdispatch.dll for the web UI / FFI
+bash build.sh tests     # builds the per-module test binaries
+bash build.sh check     # builds tests and runs them all
+bash build.sh run       # launch the TUI
+bash build.sh clean
 ```
-make            # builds build/libdispatch.a and build/dispatch.exe (the TUI)
-make shared     # also builds build/libdispatch.dll for FFI
-make tests      # builds tests/test_*.exe (per-module unit tests)
-make run        # launches the TUI
+
+Or with GNU make:
+```bash
+make
+make shared
+make tests
+make run
 make clean
 ```
 
