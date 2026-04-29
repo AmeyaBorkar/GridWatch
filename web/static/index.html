@@ -25,7 +25,7 @@
     </section>
 
     <aside id="hud">
-      <h2>Metrics</h2>
+      <h2>Live</h2>
       <dl class="metrics">
         <dt>sim time</dt><dd id="m-time">0.0</dd>
         <dt>total</dt><dd id="m-total">0</dd>
@@ -34,12 +34,36 @@
         <dt>idle units</dt><dd id="m-idle">0</dd>
         <dt>active units</dt><dd id="m-active">0</dd>
         <dt>avg response</dt><dd id="m-avg">0.00s</dd>
-        <dt>road components</dt><dd id="m-roadc">0</dd>
-        <dt>dispatch calls</dt><dd id="m-dispatch">0</dd>
-        <dt>PQ ops</dt><dd id="m-pq">0</dd>
-        <dt>huffman ratio</dt><dd id="m-huff">0.00</dd>
-        <dt>SA suffixes</dt><dd id="m-sa">0</dd>
       </dl>
+
+      <h2>Data structures in action</h2>
+      <ul class="ds-list">
+        <li>
+          <div class="ds-row"><span class="ds-name">Fibonacci heap</span><span class="ds-val" id="m-pq">0</span></div>
+          <div class="ds-tag">Dijkstra PQ ops · Unit 2</div>
+        </li>
+        <li>
+          <div class="ds-row"><span class="ds-name">Quadtree</span><span class="ds-val" id="m-dispatch">0</span></div>
+          <div class="ds-tag">Nearest-unit lookups · Unit 5</div>
+        </li>
+        <li>
+          <div class="ds-row"><span class="ds-name">DSU</span><span class="ds-val" id="m-roadc">0</span></div>
+          <div class="ds-tag">Road components · Unit 6</div>
+        </li>
+        <li>
+          <div class="ds-row"><span class="ds-name">Huffman tree</span><span class="ds-val" id="m-huff">0.00</span></div>
+          <div class="ds-tag">Radio-log compression ratio · Unit 1</div>
+        </li>
+        <li>
+          <div class="ds-row"><span class="ds-name">Suffix array</span><span class="ds-val" id="m-sa">0</span></div>
+          <div class="ds-tag">Radio-log substring index · Unit 3</div>
+        </li>
+        <li>
+          <div class="ds-row"><span class="ds-name">B+ tree / RB / AVL</span><span class="ds-val" id="m-incidents-tree">0</span></div>
+          <div class="ds-tag">Incident & unit indexes · Unit 1</div>
+        </li>
+      </ul>
+
       <h2>Radio log</h2>
       <pre id="log" class="log"></pre>
     </aside>

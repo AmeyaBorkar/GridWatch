@@ -135,11 +135,12 @@ function updateHud(state) {
   document.getElementById('m-idle').textContent = m.idle_units;
   document.getElementById('m-active').textContent = m.active_units;
   document.getElementById('m-avg').textContent = m.avg_resp.toFixed(2) + 's';
-  document.getElementById('m-roadc').textContent = m.road_components;
-  document.getElementById('m-dispatch').textContent = m.dispatch_calls;
+  document.getElementById('m-roadc').textContent = m.road_components + ' comp';
+  document.getElementById('m-dispatch').textContent = m.dispatch_calls + ' calls';
   document.getElementById('m-pq').textContent = m.pq_ops;
   document.getElementById('m-huff').textContent = m.huffman_ratio.toFixed(2);
   document.getElementById('m-sa').textContent = m.sa_suffixes;
+  document.getElementById('m-incidents-tree').textContent = m.total + ' / ' + (m.idle_units + m.active_units);
   logEl.textContent = state.log_tail || '';
   logEl.scrollTop = logEl.scrollHeight;
   pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
