@@ -70,6 +70,27 @@ main {
 }
 .legend-row { white-space: nowrap; }
 .legend-dim { color: var(--dim); }
+
+.tip {
+  position: absolute;
+  background: rgba(20, 24, 32, 0.95);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  padding: 0.4rem 0.55rem;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--fg);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.tip[hidden] { display: none; }
+.tip .tip-title { color: var(--accent); font-weight: 700; margin-bottom: 0.15rem; }
+.tip .tip-tag { color: var(--dim); font-size: 0.68rem; font-family: var(--sans); }
+#map { cursor: crosshair; }
 .sev { font-size: 1rem; vertical-align: -1px; }
 .sev-low { color: #ffe066; }
 .sev-med { color: var(--fire); }

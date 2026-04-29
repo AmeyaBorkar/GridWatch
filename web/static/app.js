@@ -15,6 +15,13 @@ const matchesEl = document.getElementById('matches');
 
 let lastState = null;
 let mapBounds = null;  // { minX, minY, maxX, maxY }
+let hoverPos = null;   // { x, y } in canvas-css pixels, or null
+const tipEl = document.getElementById('tip');
+const UNIT_NAMES = ['Ambulance', 'Fire truck', 'Police cruiser'];
+const INC_NAMES = ['medical', 'fire', 'crime'];
+const STATION_NAMES = ['Hospital', 'Fire station', 'Police precinct'];
+const STATE_NAMES = ['idle', 'enroute', 'on-scene', 'returning'];
+const SEV_NAMES = ['', 'low', 'medium', 'high'];
 
 // ---------- canvas sizing ----------
 function resizeCanvas() {
@@ -125,6 +132,78 @@ function draw(state) {
   }
 }
 
+function findHover(state) {
+  if (!hoverPos || !mapBounds) return null;
+  const radius2 = 12 * 12;
+  let best = null;
+  let bestD = radius2;
+  const consider = (x, y, kind, obj) => {
+    const dx = x - hoverPos.x, dy = y - hoverPos.y;
+    const d = dx * dx + dy * dy;
+    if (d <= bestD) { best = { kind, obj }; bestD = d; }
+  };
+  for (const u of state.units) {
+    const [x, y] = project(mapBounds, u.x, u.y);
+    consider(x, y, 'unit', u);
+  }
+  for (const s of state.stations) {
+    const [x, y] = project(mapBounds, s.x, s.y);
+    consider(x, y, 'station', s);
+  }
+  for (const i of state.incidents) {
+    if (i.resolved) continue;
+    const [x, y] = project(mapBounds, i.x, i.y);
+    consider(x, y, 'incident', i);
+  }
+  return best;
+}
+
+function updateTip(state) {
+  const h = findHover(state);
+  if (!h) { tipEl.hidden = true; return; }
+  let title = '', body = '', tag = '';
+  if (h.kind === 'unit') {
+    const u = h.obj;
+    title = `${UNIT_NAMES[u.type] || 'Unit'} #${u.id}`;
+    body  = `state: ${STATE_NAMES[u.state] || '?'}`;
+    if (u.eta > 0) body += `<br>ETA: ${u.eta.toFixed(1)}s`;
+    if (u.incident >= 0) body += `<br>responding: incident #${u.incident}`;
+    tag = u.state === 0 ? 'AVL roster · idle pool in quadtree' : 'on a Dijkstra path · skip-list ETA';
+  } else if (h.kind === 'station') {
+    const s = h.obj;
+    title = `${STATION_NAMES[s.type] || 'Station'} ${s.name || ''}`;
+    body  = `${s.n_units} units stationed`;
+    tag = 'R-tree coverage · BSP partition';
+  } else if (h.kind === 'incident') {
+    const i = h.obj;
+    title = `Incident #${i.id} — ${INC_NAMES[i.type] || '?'}`;
+    body  = `severity: ${SEV_NAMES[i.severity] || i.severity}`;
+    body += `<br>spawned t=${i.spawn.toFixed(1)}s`;
+    body += i.assigned >= 0
+      ? `<br>assigned unit #${i.assigned}`
+      : '<br>pending — DEPQ awaiting unit';
+    tag = i.assigned >= 0 ? 'Fibonacci-heap Dijkstra found this unit' : 'sitting in severity DEPQ';
+  }
+  tipEl.innerHTML = `<div class="tip-title">${title}</div>${body}<div class="tip-tag">${tag}</div>`;
+  tipEl.hidden = false;
+  const r = canvas.getBoundingClientRect();
+  const wrap = canvas.parentElement.getBoundingClientRect();
+  let tx = hoverPos.x + 14;
+  let ty = hoverPos.y + 14;
+  const tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  if (tx + tw > r.width - 8) tx = hoverPos.x - tw - 14;
+  if (ty + th > r.height - 8) ty = hoverPos.y - th - 14;
+  tipEl.style.left = (tx) + 'px';
+  tipEl.style.top  = (ty) + 'px';
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  hoverPos = { x: e.clientX - r.left, y: e.clientY - r.top };
+  if (lastState) updateTip(lastState);
+});
+canvas.addEventListener('mouseleave', () => { hoverPos = null; tipEl.hidden = true; });
+
 // ---------- HUD ----------
 function updateHud(state) {
   const m = state.metrics;
@@ -157,7 +236,7 @@ async function poll() {
     lastState = state;
     statusEl.textContent = 'ok';
     statusEl.className = 'status ok';
-    draw(state); updateHud(state);
+    draw(state); updateHud(state); updateTip(state);
   } catch (e) {
     statusEl.textContent = 'offline: ' + e.message;
     statusEl.className = 'status err';
