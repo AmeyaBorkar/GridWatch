@@ -222,6 +222,23 @@ qEl.addEventListener('keydown', (e) => {
   items.forEach((li, i) => li.classList.toggle('sel', i === selectedIdx));
 });
 
+// ---------- about modal ----------
+const aboutEl = document.getElementById('about');
+const aboutGo = document.getElementById('about-go');
+const aboutClose = document.getElementById('about-close');
+const ABOUT_KEY = 'gridwatch.about.seen.v1';
+function showAbout() { aboutEl.hidden = false; }
+function hideAbout() { aboutEl.hidden = true; try { localStorage.setItem(ABOUT_KEY, '1'); } catch {} }
+aboutGo.addEventListener('click', hideAbout);
+aboutClose.addEventListener('click', hideAbout);
+aboutEl.addEventListener('click', (e) => { if (e.target === aboutEl) hideAbout(); });
+window.addEventListener('keydown', (e) => {
+  if (e.key === '?' && !aboutEl.hidden) hideAbout();
+  else if (e.key === '?' && document.activeElement !== qEl) showAbout();
+  else if (e.key === 'Escape' && !aboutEl.hidden) hideAbout();
+});
+try { if (!localStorage.getItem(ABOUT_KEY)) showAbout(); } catch { showAbout(); }
+
 // ---------- boot ----------
 resizeCanvas();
 setInterval(poll, 100);

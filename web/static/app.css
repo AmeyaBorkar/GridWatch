@@ -133,3 +133,57 @@ footer {
 .matches.open { display: block; }
 .matches li { padding: 0.3rem 0.6rem; cursor: pointer; }
 .matches li:hover, .matches li.sel { background: var(--border); color: var(--accent); }
+
+.about {
+  position: fixed; inset: 0;
+  background: rgba(8, 10, 14, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  animation: about-fade 180ms ease-out;
+}
+.about[hidden] { display: none; }
+@keyframes about-fade { from { opacity: 0; } to { opacity: 1; } }
+.about-card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem 1.75rem 1.25rem;
+  max-width: 560px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+}
+.about-card h2 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.about-card .lede { color: var(--dim); margin: 0 0 0.9rem; font-size: 0.92rem; line-height: 1.45; }
+.about-steps { margin: 0 0 1rem; padding-left: 1.1rem; font-size: 0.88rem; line-height: 1.55; color: var(--fg); }
+.about-steps li { margin-bottom: 0.35rem; }
+.about-steps em { color: var(--accent); font-style: normal; }
+.about-tip { color: var(--dim); font-size: 0.78rem; margin: 0 0 1rem; }
+.about-tip kbd {
+  font-family: var(--mono); background: var(--panel2);
+  border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 3px; padding: 0 0.3rem; font-size: 0.78rem;
+}
+.about-tip code { font-family: var(--mono); color: var(--accent); }
+.about-close {
+  position: absolute; top: 0.4rem; right: 0.6rem;
+  background: transparent; border: none; color: var(--dim);
+  font-size: 1.4rem; cursor: pointer; line-height: 1;
+}
+.about-close:hover { color: var(--fg); }
+.about-go {
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 3px;
+  padding: 0.45rem 1rem; cursor: pointer; font-weight: 600;
+  font-family: var(--sans);
+}
+.about-go:hover { filter: brightness(1.1); }
+.legend-pill {
+  display: inline-block;
+  width: 1.2em; text-align: center;
+  border-radius: 3px; padding: 0 0.15em;
+  font-family: var(--mono); font-weight: 700; font-size: 0.85em;
+  color: #0a0c10;
+}
+.legend-pill.amb  { background: var(--amb); }
+.legend-pill.fire { background: var(--fire); }
+.legend-pill.pol  { background: var(--pol); }

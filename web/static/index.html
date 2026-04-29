@@ -54,6 +54,34 @@
     </div>
   </footer>
 
+  <div id="about" class="about" hidden>
+    <div class="about-card">
+      <button class="about-close" id="about-close" aria-label="close">×</button>
+      <h2>Welcome to GridWatch</h2>
+      <p class="lede">
+        A live emergency-dispatch simulator. Every metric on the right is
+        a real measurement of an advanced data structure running under
+        the hood.
+      </p>
+      <ol class="about-steps">
+        <li><strong>The map</strong> is a small grid city. <span class="legend-pill amb">H</span> hospitals,
+            <span class="legend-pill fire">F</span> fire stations, <span class="legend-pill pol">P</span> police.</li>
+        <li><strong>Incidents</strong> spawn as pulsing dots — yellow / orange / red for low / medium / high severity.</li>
+        <li>The dispatcher uses a <em>quadtree</em> to find nearby idle units, then a
+            <em>Fibonacci-heap-backed Dijkstra</em> to pick the fastest route.</li>
+        <li>Watch <strong>PQ ops</strong>, <strong>dispatch calls</strong>, <strong>Huffman ratio</strong>, and
+            <strong>SA suffixes</strong> tick up in real time as the city handles traffic.</li>
+        <li>Type a street fragment in the search box to see the <em>trie autocomplete</em>; toggle
+            <em>fuzzy</em> for the <em>BK-tree</em> spelling-tolerant search.</li>
+      </ol>
+      <p class="about-tip">
+        Press <kbd>?</kbd> at any time to see this again. Full concept walkthrough is in
+        <code>docs/CONCEPTS.md</code>.
+      </p>
+      <button class="about-go" id="about-go">Start watching</button>
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
