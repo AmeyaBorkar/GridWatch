@@ -28,6 +28,7 @@ typedef struct {
     int               flash_node;
     double            flash_until;
     double            last_spawn_rate;
+    int               help_visible;
     int               quit;
 } tui_state_t;
 

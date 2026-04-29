@@ -472,15 +472,70 @@ static void render_hint(const sim_t* sim, double spawn_rate) {
     reset_sgr();
 }
 
+static void render_help_overlay(void) {
+    static const char* lines[] = {
+        " GridWatch — Emergency Dispatch Simulator",
+        "",
+        " You're watching live dispatch on a grid city.",
+        " Each metric on the right is a real DS counter:",
+        "",
+        "  Fibonacci heap  -> Dijkstra PQ for routing",
+        "  Quadtree        -> nearest-idle-unit lookup",
+        "  DEPQ            -> severity-ordered pending pool",
+        "  AVL / RB / B+   -> unit + incident indexes",
+        "  Trie + BK-tree  -> street autocomplete + fuzzy",
+        "  Suffix array    -> radio-log substring search",
+        "  Huffman         -> live log compression ratio",
+        "  DSU             -> connected road components",
+        "  Persistent list -> immutable event history",
+        "",
+        " Glyphs:",
+        "   H/A  hospital + ambulance     ! incident",
+        "   F    fire station + truck     . intersection",
+        "   P    police + cruiser         X blocked road",
+        "",
+        " Controls:",
+        "   SPACE  pause / resume    S  force-spawn",
+        "   +/-    spawn rate        TAB toggle fuzzy",
+        "   Q/ESC  quit              ?  toggle this help",
+        "",
+        " Full walkthrough: docs/CONCEPTS.md",
+        "",
+        " (press ? or ESC to dismiss)",
+        NULL
+    };
+    fg(220, 222, 230);
+    int y = MAP_ROW0 + 2;
+    for (int i = 0; lines[i] != NULL; ++i) {
+        if (y > MAP_INNER_H) break;
+        move_to(y, MAP_COL0 + 2);
+        for (int j = 0; j < MAP_INNER_W - 2; ++j) buf_puts(" ");
+        move_to(y, MAP_COL0 + 2);
+        if (i == 0) fg(160, 220, 255);
+        else        fg(220, 222, 230);
+        buf_puts(lines[i]);
+        ++y;
+    }
+    reset_sgr();
+}
+
 void tui_render_frame(const sim_t* sim, const tui_state_t* st, double spawn_rate) {
     buf_reset();
     buf_puts("\x1b[H");
     draw_box_borders();
-    render_map(sim, st);
-    render_stats(sim);
-    render_radio(sim);
-    render_search(st);
-    render_hint(sim, spawn_rate);
+    if (st->help_visible) {
+        render_stats(sim);
+        render_radio(sim);
+        render_search(st);
+        render_hint(sim, spawn_rate);
+        render_help_overlay();
+    } else {
+        render_map(sim, st);
+        render_stats(sim);
+        render_radio(sim);
+        render_search(st);
+        render_hint(sim, spawn_rate);
+    }
     move_to(HINT_ROW + 2, 1);
     fwrite(g_buf, 1, g_len, stdout);
     fflush(stdout);

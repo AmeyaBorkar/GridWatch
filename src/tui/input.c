@@ -42,7 +42,11 @@ void tui_handle_input(sim_t* sim, tui_state_t* st, double* spawn_rate) {
         int c = tui_getch();
         if (c < 0) continue;
 
-        if (c == 27) { st->quit = 1; return; }
+        if (c == '?') { st->help_visible = !st->help_visible; continue; }
+        if (c == 27) {
+            if (st->help_visible) { st->help_visible = 0; continue; }
+            st->quit = 1; return;
+        }
         if (c == 'q' || c == 'Q') { st->quit = 1; return; }
 
         if (c == ' ') {
