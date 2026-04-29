@@ -351,8 +351,36 @@ static void render_map(const sim_t* sim, const tui_state_t* st) {
     emit_map(&m);
 }
 
+static struct {
+    size_t prev_pq;
+    size_t prev_dispatch;
+    size_t prev_total;
+    size_t prev_resolved;
+    double prev_time;
+    size_t d_pq;
+    size_t d_dispatch;
+    size_t d_total;
+    size_t d_resolved;
+    int    initialised;
+} g_act = { 0 };
+
 static void render_stats(const sim_t* sim) {
     sim_metrics_t mt; sim_metrics(sim, &mt);
+
+    if (g_act.initialised) {
+        g_act.d_pq       = (mt.pq_operations  > g_act.prev_pq)       ? mt.pq_operations  - g_act.prev_pq       : 0;
+        g_act.d_dispatch = (mt.dispatch_calls > g_act.prev_dispatch) ? mt.dispatch_calls - g_act.prev_dispatch : 0;
+        g_act.d_total    = (mt.total_incidents > g_act.prev_total)   ? mt.total_incidents - g_act.prev_total   : 0;
+        g_act.d_resolved = (mt.resolved_incidents > g_act.prev_resolved)
+                           ? mt.resolved_incidents - g_act.prev_resolved : 0;
+    }
+    g_act.prev_pq        = mt.pq_operations;
+    g_act.prev_dispatch  = mt.dispatch_calls;
+    g_act.prev_total     = mt.total_incidents;
+    g_act.prev_resolved  = mt.resolved_incidents;
+    g_act.prev_time      = mt.sim_time;
+    g_act.initialised = 1;
+
     int r = 2;
     fg(220, 222, 230);
     move_to(r++, STATS_COL0); buf_printf(" t    : %7.1fs       ", mt.sim_time);
@@ -375,6 +403,24 @@ static void render_stats(const sim_t* sim) {
     move_to(r++, STATS_COL0); buf_printf(" Dispatch: %6zu       ", mt.dispatch_calls);
     move_to(r++, STATS_COL0); buf_printf(" log B   : %6zu       ", mt.log_bytes);
     move_to(r++, STATS_COL0); buf_printf(" log B(H): %6zu       ", mt.log_bytes_huffman);
+
+    move_to(r++, STATS_COL0);
+    fg(140, 145, 160);
+    for (int i = 0; i < STATS_W - 2; ++i) buf_puts("\xe2\x94\x80");
+    fg(160, 220, 255);
+    move_to(r++, STATS_COL0); buf_puts(" Activity (last frame)   ");
+    if (g_act.d_dispatch > 0) fg(120, 230, 140);
+    else                      fg(140, 145, 160);
+    move_to(r++, STATS_COL0); buf_printf(" + dispatch : %3zu       ", g_act.d_dispatch);
+    if (g_act.d_pq > 0) fg(120, 200, 255);
+    else                fg(140, 145, 160);
+    move_to(r++, STATS_COL0); buf_printf(" + PQ ops   : %3zu       ", g_act.d_pq);
+    if (g_act.d_total > 0) fg(245, 160, 70);
+    else                   fg(140, 145, 160);
+    move_to(r++, STATS_COL0); buf_printf(" + spawned  : %3zu       ", g_act.d_total);
+    if (g_act.d_resolved > 0) fg(120, 230, 140);
+    else                      fg(140, 145, 160);
+    move_to(r++, STATS_COL0); buf_printf(" + resolved : %3zu       ", g_act.d_resolved);
     reset_sgr();
 }
 
