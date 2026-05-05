@@ -32,6 +32,9 @@
 #define BOX_BOTTOM_ROW    (COMPLETIONS_ROW + 1)            /* 33 */
 #define HINT_ROW          (BOX_BOTTOM_ROW + 1)              /* 34 — outside the frame */
 
+/* Double-buffered rendering: every frame is composed into g_buf as a single
+ * stream of ANSI escape codes, then written to stdout in one fwrite. This
+ * eliminates flicker (no partial frames) and makes redraws atomic. */
 static char   g_buf[TUI_BUF_CAP];
 static size_t g_len = 0;
 
@@ -127,6 +130,9 @@ static void map_world_to_screen(const map_t* m, double wx, double wy,
     *sy = m->off_y + py;
 }
 
+/* The below block draws the static UI chrome — the outer frame, the panel
+ * divider between map and stats, and the section rules. Pure box-drawing
+ * UTF-8 glyphs emitted into the back buffer. */
 static void draw_box_borders(void) {
     /* Outer frame + panel divider. Drawn once; later we redraw every frame. */
     fg(140, 145, 160);
@@ -249,6 +255,10 @@ static void emit_map(const map_t* m) {
     }
 }
 
+/* The below block renders the city map: pulls fresh view snapshots from the
+ * sim (nodes, roads, stations, units, incidents), rasterises them into a
+ * char/color grid, then emits the grid as ANSI. The sim is opaque — we only
+ * touch the public *_view_t POD structs. */
 static void render_map(const sim_t* sim, const tui_state_t* st) {
     int rows = sim_rows(sim);
     int cols = sim_cols(sim);
@@ -390,6 +400,9 @@ static void stats_line(int row, const char* fmt, ...) {
     for (int i = n; i < STATS_W; ++i) buf_puts(" ");
 }
 
+/* The below block renders the right-hand stats panel — every counter on it
+ * is a live DS metric (PQ ops, Huffman ratio, suffix-array size, road
+ * components, etc.). Also computes per-frame deltas to highlight activity. */
 static void render_stats(const sim_t* sim) {
     sim_metrics_t mt; sim_metrics(sim, &mt);
 
@@ -455,6 +468,9 @@ static void clear_row(int row, int col0, int col1) {
     for (int i = col0; i < col1; ++i) buf_puts(" ");
 }
 
+/* The below block renders the radio-log section: pulls the tail of the log
+ * (which is the same buffer the Huffman coder compresses and the suffix
+ * array indexes), splits into lines, and shows the last few. */
 static void render_radio(const sim_t* sim) {
     char log[TUI_LOG_CAP];
     size_t n = sim_log_tail(sim, log, TUI_LOG_CAP);
@@ -497,6 +513,9 @@ static void render_radio(const sim_t* sim) {
     reset_sgr();
 }
 
+/* The below block renders the search input + completion list. The
+ * completions themselves come from the trie (prefix mode) or the BK-tree
+ * fuzzy matcher (Tab-toggled), populated by tui_update_completions. */
 static void render_search(const tui_state_t* st) {
     clear_row(SEARCH_INPUT_ROW, 2, TOTAL_W);
     move_to(SEARCH_INPUT_ROW, 3);
@@ -592,6 +611,9 @@ static void render_help_overlay(void) {
     reset_sgr();
 }
 
+/* The below function is the per-frame render entrypoint. Resets the back
+ * buffer, composes every UI section into it, then flushes the whole frame
+ * to stdout in one fwrite — the double-buffered swap. */
 void tui_render_frame(const sim_t* sim, const tui_state_t* st, double spawn_rate) {
     buf_reset();
     buf_puts("\x1b[H");

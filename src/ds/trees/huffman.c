@@ -5,6 +5,9 @@
 
 #define HUF_ALPHA 256
 
+/* Huffman tree node: leaves carry a byte symbol, internal nodes have symbol=-1
+ * and two children. The greedy build merges the two lowest-freq nodes into a
+ * new internal node until only the root remains. */
 typedef struct hnode {
     uint32_t freq;
     int symbol;    /* -1 for internal */
@@ -12,6 +15,9 @@ typedef struct hnode {
     struct hnode* right;
 } hnode_t;
 
+/* Compressor state: the tree (for decode) plus a precomputed lookup table
+ * mapping each byte -> (variable-length code, code length). The table is
+ * what makes encode O(1) per symbol instead of walking the tree every time. */
 struct huffman {
     hnode_t* root;
     uint64_t codes[HUF_ALPHA];
@@ -20,6 +26,9 @@ struct huffman {
     int      n_symbols;
 };
 
+/* Binary min-heap (array-backed) keyed by frequency. This is the priority
+ * queue that drives Huffman's greedy build — repeatedly fuse the two lightest
+ * nodes. A simple binary heap suffices: only push and pop-min are needed. */
 /* --- tiny binary heap of hnode_t* keyed by freq. --- */
 typedef struct { hnode_t** a; size_t n, cap; } pq_t;
 
@@ -69,6 +78,10 @@ static void hnode_free(hnode_t* n) {
     free(n);
 }
 
+/* The below block walks the tree to derive the per-symbol bit codes:
+ * left child = append 0, right child = append 1. The path from root to
+ * leaf becomes that symbol's prefix-free code. Stored into h->codes for
+ * fast lookup during encoding. */
 static int build_codes(huffman_t* h, hnode_t* n, uint64_t code, uint8_t len) {
     if (!n) return 0;
     if (n->symbol >= 0) {
@@ -86,11 +99,17 @@ static int build_codes(huffman_t* h, hnode_t* n, uint64_t code, uint8_t len) {
     return 0;
 }
 
+/* The below block builds the Huffman tree via the classic greedy algorithm.
+ * Step 1: count byte frequencies. Step 2: seed the PQ with one leaf per used
+ * symbol. Step 3: repeatedly pop the two lightest, fuse into a parent, push
+ * back. The last node out is the root. Used here to compress the radio log. */
 huffman_t* huffman_build(const uint8_t* data, size_t n) {
     if (!data && n > 0) return NULL;
     huffman_t* h = (huffman_t*)calloc(1, sizeof *h);
     if (!h) return NULL;
 
+    /* Frequency counting: a single pass to build the symbol histogram that
+     * drives the greedy choice of which nodes to merge first. */
     uint32_t freq[HUF_ALPHA] = {0};
     for (size_t i = 0; i < n; i++) freq[data[i]]++;
 
@@ -118,6 +137,9 @@ huffman_t* huffman_build(const uint8_t* data, size_t n) {
         h->root = hnode_new(-1, only->freq, only, NULL);
         if (!h->root) { hnode_free(only); pq_free(&q); free(h); return NULL; }
     } else {
+        /* The greedy build loop: pop the two least-frequent nodes, fuse them
+         * into a parent whose freq is the sum, push back. After n-1 fusions
+         * one tree remains — the optimal prefix code tree. */
         while (q.n > 1) {
             hnode_t* a = pq_pop(&q);
             hnode_t* b = pq_pop(&q);
@@ -150,6 +172,9 @@ static int get_bit(const uint8_t* in, size_t pos) {
     return (in[pos >> 3] >> (7 - (pos & 7))) & 1;
 }
 
+/* The below block encodes via a precomputed lookup table: for each input
+ * byte, fetch its bit code and length and emit the bits. O(1) per symbol —
+ * no tree walks. This is the hot path for compressing the live radio log. */
 size_t huffman_encode(const huffman_t* h, const uint8_t* in, size_t in_n,
                       uint8_t* out_bits, size_t out_cap) {
     if (!h || !in || !out_bits) return 0;
@@ -172,6 +197,9 @@ size_t huffman_encode(const huffman_t* h, const uint8_t* in, size_t in_n,
     return pos;
 }
 
+/* The below block decodes by walking the tree one bit at a time:
+ * 0 -> left child, 1 -> right child. On reaching a leaf, emit its symbol
+ * and reset to root. The prefix-free property guarantees unambiguous parsing. */
 size_t huffman_decode(const huffman_t* h, const uint8_t* in_bits, size_t bit_len,
                       uint8_t* out, size_t out_cap) {
     if (!h || !h->root || !in_bits || !out) return 0;

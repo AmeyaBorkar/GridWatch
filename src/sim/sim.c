@@ -186,6 +186,10 @@ int sim_force_spawn(sim_t* S) {
     return inc ? inc->id : -1;
 }
 
+/* The below block is the main tick loop: one frame of simulated time.
+ * It orchestrates the four phases — dispatcher (assign units to incidents),
+ * unit motion, incident spawning, then a quadtree rebuild + metrics update.
+ * Everything the UI eventually shows on screen comes from this function. */
 void sim_tick(sim_t* S, double dt) {
     if (!S || S->paused || dt <= 0.0) return;
 
@@ -261,6 +265,9 @@ size_t sim_stations(const sim_t* S, sim_station_view_t* out, size_t max) {
     return n;
 }
 
+/* The below block is a snapshot exporter: copy each internal sim_unit_t into
+ * the public POD sim_unit_view_t. This is the bridge between the opaque
+ * internal struct and any UI — the UI never touches sim_unit_t directly. */
 size_t sim_units(const sim_t* S, sim_unit_view_t* out, size_t max) {
     if (!S || !out) return 0;
     size_t n = S->n_units < max ? S->n_units : max;
@@ -281,6 +288,9 @@ size_t sim_units(const sim_t* S, sim_unit_view_t* out, size_t max) {
     return n;
 }
 
+/* The below block is the matching snapshot exporter for incidents: shallow
+ * copy of the internal record into the FFI-safe view struct. Pure data, no
+ * pointers — safe to send across DLL or language boundaries. */
 size_t sim_incidents(const sim_t* S, sim_incident_view_t* out, size_t max) {
     if (!S || !out) return 0;
     size_t n = S->n_incidents < max ? S->n_incidents : max;
@@ -375,6 +385,10 @@ size_t sim_log_tail(const sim_t* S, char* buf, size_t cap) {
     return copy;
 }
 
+/* The below block uses the rolling log's Suffix Array (when fresh) to count
+ * occurrences of `pattern` in O(m log n) via two binary searches; if no SA
+ * has been built yet it falls back to a naive O(n*m) scan. This is how the
+ * simulator answers "how often was this phrase mentioned on the radio?". */
 size_t sim_log_count(const sim_t* S, const char* pattern) {
     if (!S || !pattern) return 0;
     size_t m = strlen(pattern);

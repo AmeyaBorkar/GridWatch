@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <math.h>
 
+/* Fibonacci heap node: a circular doubly-linked sibling list (left/right) plus
+ * a parent/child pointer and a `mark` flag used by cascading cuts. The degree
+ * field counts children — used by consolidation to bucket trees by rank. */
 struct heap_fib_node {
     ds_key_t key;
     ds_val_t val;
@@ -11,6 +14,9 @@ struct heap_fib_node {
     int mark;
 };
 
+/* Fibonacci heap: just a pointer to the min root + a count. The forest of
+ * heap-ordered trees lives behind `min` in a circular root list. This minimal
+ * structure is what gives O(1) amortized insert and decrease-key. */
 struct heap_fib {
     heap_fib_node_t* min;
     size_t n;
@@ -52,6 +58,10 @@ static void fib_list_insert(heap_fib_node_t** list, heap_fib_node_t* x) {
     }
 }
 
+/* The below block uses lazy insertion (the defining trick of Fibonacci heaps)
+ * to add a new node directly into the root list in O(1). No restructuring is
+ * done now — work is deferred to the next extract-min. Returns the node handle
+ * so callers (e.g. Dijkstra) can later decrease-key on it. */
 heap_fib_node_t* heap_fib_push(heap_fib_t* h, ds_key_t key, ds_val_t val) {
     if (!h) return NULL;
     heap_fib_node_t* n = (heap_fib_node_t*)calloc(1, sizeof(*n));
@@ -91,6 +101,10 @@ static void fib_link(heap_fib_node_t* y, heap_fib_node_t* x) {
     y->mark = 0;
 }
 
+/* The below block performs the consolidation step: after an extract-min,
+ * walk the root list and merge any two trees with the same degree into one
+ * (using A[] as a degree-indexed bucket array). This is the deferred work
+ * that makes earlier inserts O(1) — the cost is paid lazily here. */
 static ds_status_t fib_consolidate(heap_fib_t* h) {
     if (!h->min) return DS_OK;
     int D = (int)(log2((double)h->n) * 2) + 2;
@@ -140,6 +154,9 @@ static ds_status_t fib_consolidate(heap_fib_t* h) {
     return DS_OK;
 }
 
+/* The below block implements extract-min: promote the min's children to roots,
+ * remove the old min, then call consolidate to clean up the forest. This is
+ * the only O(log n) amortized operation — every other op pushes work here. */
 ds_status_t heap_fib_pop_min(heap_fib_t* h, ds_entry_t* out) {
     if (!h) return DS_ERR_INVALID;
     heap_fib_node_t* z = h->min;
@@ -176,6 +193,8 @@ ds_status_t heap_fib_pop_min(heap_fib_t* h, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* fib_cut: detach child x from parent y and splice x back into the root list.
+ * Used when a decrease-key violates heap order with the parent. */
 static void fib_cut(heap_fib_t* h, heap_fib_node_t* x, heap_fib_node_t* y) {
     if (x->right == x) {
         y->child = NULL;
@@ -191,6 +210,10 @@ static void fib_cut(heap_fib_t* h, heap_fib_node_t* x, heap_fib_node_t* y) {
     fib_list_insert(&h->min, x);
 }
 
+/* The below block implements cascading cuts: if a node loses a second child
+ * since becoming non-root, cut it too and recurse upward. This bookkeeping
+ * (via the `mark` flag) is what bounds tree degrees and makes the O(log n)
+ * amortized analysis of extract-min go through. */
 static void fib_cascading_cut(heap_fib_t* h, heap_fib_node_t* y) {
     heap_fib_node_t* z = y->parent;
     if (z) {
@@ -203,6 +226,10 @@ static void fib_cascading_cut(heap_fib_t* h, heap_fib_node_t* y) {
     }
 }
 
+/* The below block is the famous O(1) amortized decrease-key. Lower x's key,
+ * and if heap order with the parent is violated, cut x out and trigger a
+ * cascading cut up the tree. This is exactly why Dijkstra picks the Fib heap:
+ * relaxing an edge is essentially free amortized. */
 ds_status_t heap_fib_decrease_key(heap_fib_t* h, heap_fib_node_t* x, ds_key_t new_key) {
     if (!h || !x) return DS_ERR_INVALID;
     if (new_key > x->key) return DS_ERR_INVALID;

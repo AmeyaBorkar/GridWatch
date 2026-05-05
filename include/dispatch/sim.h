@@ -2,7 +2,11 @@
  *
  * This is the only header any UI (TUI, Python ctypes/cffi, Web server)
  * needs to include. All state is opaque; all views are POD snapshots.
- */
+ *
+ * Architecture: the opaque sim_t* hides every internal DS (heaps, trees,
+ * quadtree, etc.). UIs read state by asking for view snapshots — flat
+ * POD structs that copy cleanly across any FFI boundary. This is the
+ * ABI contract that lets TUI / Python / web all share one DLL. */
 #ifndef DISPATCH_SIM_H
 #define DISPATCH_SIM_H
 
@@ -43,7 +47,11 @@ typedef enum {
 
 /* ================================================================
  * POD view structs (safe to copy across FFI)
- * ================================================================ */
+ *
+ * Each *_view_t is a flat snapshot of one entity at one tick. The sim
+ * keeps the real entities (with internal DS pointers, paths, etc.)
+ * private; UIs only ever see these copies. Pure POD = trivially
+ * marshallable to Python ctypes / WASM / JSON. */
 typedef struct {
     int    id;
     int    row, col;    /* grid coordinates */
@@ -111,6 +119,9 @@ typedef struct {
 /* ================================================================
  * Lifecycle
  * ================================================================ */
+/* Opaque handle: the real `struct sim` is defined in sim_internal.h
+ * and is invisible to callers. They only get a forward-declared pointer
+ * — the textbook opaque-handle pattern for stable C ABIs. */
 typedef struct sim sim_t;
 
 DS_API sim_t* sim_create(int rows, int cols, uint64_t seed);
@@ -131,7 +142,10 @@ DS_API int    sim_force_spawn(sim_t*);
 
 /* ================================================================
  * World snapshots (copy into caller buffer, return # written)
- * ================================================================ */
+ *
+ * The snapshot pattern: caller provides a fixed-size buffer, we fill it
+ * with current state. No shared memory, no callbacks — UIs poll once
+ * per frame and render from a stable copy. */
 DS_API int    sim_rows(const sim_t*);
 DS_API int    sim_cols(const sim_t*);
 DS_API size_t sim_nodes(const sim_t*, sim_node_view_t* out, size_t max);

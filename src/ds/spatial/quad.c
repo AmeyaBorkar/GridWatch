@@ -6,6 +6,10 @@
 
 #define QUAD_CAP 4
 
+/* Quadtree node: holds an axis-aligned bounding box, a small bucket of points
+ * (up to QUAD_CAP=4), and four optional children for the NW/NE/SW/SE quadrants.
+ * Lazy growth: a node only subdivides when the bucket overflows. Used in the
+ * sim to find the nearest idle unit to a new incident. */
 typedef struct sp_quad {
     double x, y, w, h; /* bounds (x,y) = top-left corner, w,h = size */
     sp_point_t pts[QUAD_CAP];
@@ -50,6 +54,9 @@ static int rect_intersects(double ax, double ay, double aw, double ah,
     return 1;
 }
 
+/* The below block performs the 4-way spatial subdivision: split this node's
+ * bounding box into four equal child quadrants (NW/NE/SW/SE). Called when
+ * the bucket overflows — this is what makes the tree grow lazily. */
 static int quad_subdivide(sp_quad_t* q) {
     double hw = q->w / 2.0, hh = q->h / 2.0;
     q->nw = quad_new(q->x, q->y, hw, hh);
@@ -65,6 +72,10 @@ static int quad_subdivide(sp_quad_t* q) {
     return 1;
 }
 
+/* The below block does a recursive insert with lazy split: drop the point
+ * into this node if there's room (bucket < cap); otherwise subdivide on
+ * demand and recurse into the matching child. Avoids paying for subdivision
+ * until it's actually needed. */
 static ds_status_t quad_insert_rec(sp_quad_t* q, double x, double y, ds_val_t v) {
     if (!quad_contains(q, x, y)) return DS_ERR_INVALID;
     if (!q->divided && q->n < QUAD_CAP) {
@@ -89,6 +100,10 @@ ds_status_t sp_quad_insert(sp_quad_t* q, double x, double y, ds_val_t v) {
     return quad_insert_rec(q, x, y, v);
 }
 
+/* The below block is the range query — and the rect_intersects check on the
+ * very first line is the entire speedup of a quadtree: if this node's bbox
+ * doesn't overlap the query rect, we prune the whole subtree (no recursion).
+ * Without that prune you'd just be doing a linear scan with extra steps. */
 static void quad_query_rec(const sp_quad_t* q, double rx, double ry, double rw, double rh,
                             sp_point_t* out, size_t max, size_t* cnt) {
     if (!rect_intersects(q->x, q->y, q->w, q->h, rx, ry, rw, rh)) return;
@@ -154,6 +169,10 @@ static int nn_cmp(const void* a, const void* b) {
     return 0;
 }
 
+/* The below block does k-nearest-neighbor the simple way: collect every point
+ * in the tree, compute squared distance, sort, return the k smallest. Not the
+ * theoretically optimal nearest algorithm, but it works well at the small
+ * scales the dispatcher uses (handful of idle units). */
 size_t sp_quad_nearest(const sp_quad_t* q, double x, double y, size_t k, sp_point_t* out) {
     if (!q || k == 0) return 0;
     size_t total = quad_count(q);

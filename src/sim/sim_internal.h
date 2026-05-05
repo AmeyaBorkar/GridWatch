@@ -85,6 +85,9 @@ typedef struct {
     str_sa_t*  sa;
 } sim_log_t;
 
+/* The full simulation state. This is the concrete struct hidden behind the
+ * opaque `sim_t` typedef in the public header. Each group below corresponds
+ * to one ADS concept used by the dispatcher. */
 struct sim {
     int rows, cols;
     uint64_t seed;
@@ -94,17 +97,19 @@ struct sim {
     double spawn_rate;
     double spawn_accum;
 
-    /* nodes/roads */
+    /* nodes/roads — the raw graph: array of intersections + array of edges. */
     sim_node_t* nodes;
     size_t      n_nodes;
     sim_road_t* roads;
     size_t      n_roads;
 
-    /* CSR adjacency */
+    /* CSR (Compressed Sparse Row) adjacency: flat arrays for graph traversal.
+     * adj_head[u] indexes into adj_to/adj_w to find u's outgoing edges. This is
+     * the cache-friendly representation Dijkstra walks during edge relaxation. */
     int*    adj_head;   /* size n_nodes+1 */
     int*    adj_to;     /* size 2*n_roads */
     double* adj_w;      /* size 2*n_roads */
-    int*    adj_blocked;
+    int*    adj_blocked; /* parallel array — flag per directed edge for closures */
 
     /* stations, units, incidents */
     sim_station_t* stations;
@@ -118,7 +123,9 @@ struct sim {
     int             next_unit_id;
     int             next_incident_id;
 
-    /* road DSU */
+    /* DSU (Disjoint-Set Union / union-find): tracks connected components of
+     * the road graph. road_components is the count shown in the HUD; the
+     * main_cc_root identifies the largest component that the city uses. */
     misc_dsu_t* dsu;
     size_t      road_components;
     int         main_cc_root;
@@ -126,31 +133,46 @@ struct sim {
     /* log */
     sim_log_t log;
 
-    /* trees / indices */
+    /* Balanced/specialized BST family — each indexes a different view of state.
+     * AVL = strict balance (unit lookup), RB = relaxed balance (FIFO pending),
+     * splay = move-to-root for temporal locality, B+ = bulk-friendly id log,
+     * threaded = in-order traversal without recursion. */
     tree_avl_t*    unit_by_id;        /* id -> sim_unit_t* */
     tree_rb_t*     pending_by_spawn;  /* spawn_time -> sim_incident_t* */
     tree_splay_t*  recent_units;      /* id -> sim_unit_t* */
     tree_bplus_t*  incidents_log;     /* id -> sim_incident_t* */
     tree_threaded_t* pending_alt;     /* mirror of pending by spawn_time */
 
-    /* warm-up heaps (exercised once) */
+    /* Heap zoo: kept around as the alternative meldable PQs (binomial, leftist,
+     * skew, pairing). The DEPQ (double-ended priority queue) is the real worker
+     * here — it orders pending incidents by severity so high-priority calls
+     * jump the queue. (Note: the Fib heap lives transiently inside Dijkstra.) */
     heap_binom_t*   h_binom;
     heap_leftist_t* h_leftist;
     heap_skew_t*    h_skew;
     heap_pairing_t* h_pairing;
     depq_t*         pending_depq;     /* severity-ordered pending queue */
 
-    /* strings */
+    /* String indexes for the search bar: trie + compressed-radix trie + DAWG
+     * for prefix completion, BK-tree-style fuzzy matcher for typo tolerance. */
     str_trie_t*   trie;
     str_crtrie_t* crtrie;
     str_dawg_t*   dawg;
     str_fuzzy_t*  fuzzy;
 
-    /* randomized */
+    /* Randomized DS: skip list (probabilistic balanced BST) for the live ETA
+     * leaderboard; treap (BST + heap by random priority) for station load. */
     rnd_skip_t*   eta_board;      /* ETA leaderboard */
     rnd_treap_t*  station_load;
 
-    /* spatial */
+    /* Spatial indexes — each a different geometric query strategy.
+     * quadtree    = nearest idle unit (lazy 4-way split),
+     * kd-tree     = generic 2D nearest-neighbor,
+     * R-tree      = station coverage rectangles,
+     * segment tree = 60-bucket rolling incident counts (range sum),
+     * interval tree = unit shift overlap queries,
+     * range tree  = orthogonal range search,
+     * BSP         = binary space partition over stations. */
     sp_quad_t*  q_idle;           /* idle units */
     sp_kd_t*    kd_units;         /* rebuilt per frame (optional) */
     sp_rtree_t* rt_stations;      /* coverage rects */
@@ -159,12 +181,14 @@ struct sim {
     sp_range_t* range_units;      /* built once; for UI range queries */
     sp_bsp_t*   bsp_stations;
 
-    /* misc */
+    /* Misc DS: persistent (immutable) linked list of past events for time-travel
+     * inspection, plus a bitvector marking which nodes currently host incidents. */
     misc_plist_t*  plist;
     misc_pnode_t*  plist_head;
     misc_bv_t*     bv_has_incident;
 
-    /* metrics counters */
+    /* Counters surfaced as HUD metrics — every priority-queue op and every
+     * Dijkstra invocation is tallied so the user can watch the DS work live. */
     size_t pq_operations;
     size_t dispatch_calls;
     double total_response_time;

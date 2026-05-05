@@ -25,6 +25,10 @@ static void on_exit_cleanup(void) {
     tui_state_reset_completions(&g_state);
 }
 
+/* The below function is the TUI entry point. It owns the sim handle (an
+ * opaque sim_t*) and runs a fixed-rate render loop: every frame it polls
+ * input, advances the sim by dt, then redraws by reading view snapshots.
+ * Classic input -> update -> render game-loop pattern. */
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
 
@@ -44,6 +48,11 @@ int main(int argc, char** argv) {
     atexit(on_exit_cleanup);
     tui_console_init();
 
+    /* The frame loop: each iteration is one tick.
+     *   1) read keyboard input (pause/quit/spawn/etc.)
+     *   2) sim_tick advances all DS state by dt seconds
+     *   3) render reads view snapshots (sim_units, sim_incidents, ...) and draws
+     *   4) sleep to hit ~TARGET_FPS. */
     double prev = now_seconds();
     while (!g_state.quit) {
         double t = now_seconds();
