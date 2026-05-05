@@ -13,9 +13,6 @@
 #define STATS_COL0     67
 #define STATS_W        28
 #define TOTAL_W        96
-#define RADIO_ROW      26
-#define RADIO_H        3
-#define SEARCH_ROW     29
 
 /* Row layout under the map.
  *   rows 2..MAP_BOTTOM_ROW   map + stats panel
