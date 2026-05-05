@@ -12,7 +12,7 @@
 #define MAP_INNER_H    24
 #define STATS_COL0     67
 #define STATS_W        28
-#define TOTAL_W        96
+#define TOTAL_W        95
 
 /* Row layout under the map.
  *   rows 2..MAP_BOTTOM_ROW   map + stats panel
