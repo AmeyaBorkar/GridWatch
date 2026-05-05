@@ -575,12 +575,14 @@ static void render_help_overlay(void) {
         " (press ? or ESC to dismiss)",
         NULL
     };
+    /* Wipe the full inner map area so stale glyphs don't bleed through. */
+    for (int row = MAP_ROW0 + 1; row <= MAP_BOTTOM_ROW; ++row) {
+        clear_row(row, MAP_COL0 + 1, MAP_COL0 + 1 + MAP_INNER_W);
+    }
     fg(220, 222, 230);
     int y = MAP_ROW0 + 2;
     for (int i = 0; lines[i] != NULL; ++i) {
-        if (y > MAP_INNER_H) break;
-        move_to(y, MAP_COL0 + 2);
-        for (int j = 0; j < MAP_INNER_W - 2; ++j) buf_puts(" ");
+        if (y > MAP_BOTTOM_ROW) break;
         move_to(y, MAP_COL0 + 2);
         if (i == 0) fg(160, 220, 255);
         else        fg(220, 222, 230);
