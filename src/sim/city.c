@@ -14,12 +14,19 @@ int sim_node_index(const struct sim* S, int r, int c) {
     return r * S->cols + c;
 }
 
+/* STREET NAMING: derives a human-readable intersection label from the (row, col)
+ * grid coordinates by indexing into a fixed pool of street names. Pure helper —
+ * no ADS concept here, just gives the TUI something pretty to display. */
 static void make_street_name(int r, int c, char* out, size_t cap) {
     const char* row_s = SIM_STREETS[r % SIM_STREET_POOL_SZ];
     const char* col_s = SIM_STREETS[c % SIM_STREET_POOL_SZ];
     snprintf(out, cap, "%s & %s", row_s, col_s);
 }
 
+/* CITY BUILDER: constructs the entire road graph as (a) a 2-D grid of nodes,
+ * (b) horizontal + vertical edges with uniform length-64 weights and every 7th
+ * road blocked, (c) a CSR adjacency representation, and (d) a DSU sweep that
+ * merges all non-blocked endpoints to compute connected road components. */
 int sim_build_city(struct sim* S) {
     int R = S->rows, C = S->cols;
     S->n_nodes = (size_t)R * (size_t)C;
@@ -39,6 +46,10 @@ int sim_build_city(struct sim* S) {
         }
     }
 
+    /* GRID GENERATION + ROAD WEIGHTS: enumerate all horizontal then all vertical
+     * edges of the R x C grid and assign each a uniform length (the edge weight
+     * Dijkstra later consumes). The mod-7 pattern blocks roughly 1 in 7 roads,
+     * making the connectivity question (handled by DSU below) non-trivial. */
     /* build roads: horizontal + vertical edges, every 7th blocked */
     size_t max_roads = (size_t)(R * (C - 1)) + (size_t)((R - 1) * C);
     S->roads = (sim_road_t*)calloc(max_roads ? max_roads : 1, sizeof(sim_road_t));
@@ -71,6 +82,11 @@ int sim_build_city(struct sim* S) {
         }
     }
 
+    /* CSR (COMPRESSED SPARSE ROW) ADJACENCY BUILD: instead of an array of
+     * linked-list adjacency lists, store all neighbours contiguously in adj_to[]
+     * with adj_head[v] giving the start offset for vertex v. Two passes —
+     * first count degrees and prefix-sum into adj_head, then scatter neighbours
+     * using a per-vertex cursor. Cache-friendly layout that speeds up Dijkstra. */
     /* build CSR */
     S->adj_head = (int*)calloc(S->n_nodes + 1, sizeof(int));
     if (!S->adj_head) return -1;
@@ -97,6 +113,11 @@ int sim_build_city(struct sim* S) {
     }
     free(cursor);
 
+    /* DSU SWEEP: iterate every road and union its endpoints whenever the road
+     * is NOT blocked. After the sweep, two nodes share a root iff they're still
+     * connected by some path of open roads. The largest component (found below)
+     * is treated as the "main" drivable network — the dispatcher will refuse to
+     * route to nodes outside it. */
     /* DSU over non-blocked roads */
     S->dsu = misc_dsu_create(S->n_nodes);
     if (!S->dsu) return -1;

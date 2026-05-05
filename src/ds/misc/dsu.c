@@ -2,6 +2,11 @@
 #include "dispatch/misc.h"
 #include <stdlib.h>
 
+/* DISJOINT SET UNION (UNION-FIND): parent[] is the forest representation —
+ * parent[i] is i's parent, with roots satisfying parent[i] == i. rank[] is the
+ * upper bound on tree height for union-by-rank; sz[] tracks component size for
+ * O(1) component-size queries. Used to track which intersections remain
+ * connected after some roads are blocked. */
 struct misc_dsu {
     size_t* parent;
     size_t* rank;
@@ -32,6 +37,9 @@ DS_API void misc_dsu_destroy(misc_dsu_t* d) {
     free(d);
 }
 
+/* FIND with PATH COMPRESSION: walk up to the root, then a second pass relinks
+ * every node on the path directly to the root. Combined with union-by-rank,
+ * this gives the famous near-constant inverse-Ackermann amortised cost. */
 DS_API size_t misc_dsu_find(misc_dsu_t* d, size_t x) {
     if (!d || x >= d->n) return (size_t)-1;
     size_t r = x;
@@ -46,6 +54,9 @@ DS_API size_t misc_dsu_find(misc_dsu_t* d, size_t x) {
     return r;
 }
 
+/* UNION BY RANK: attach the shorter tree under the taller one to keep depth
+ * O(log n). Tie-breaks by incrementing rank. Together with path compression,
+ * union and find run in amortised O(alpha(n)) — effectively O(1). */
 DS_API int misc_dsu_union(misc_dsu_t* d, size_t a, size_t b) {
     if (!d || a >= d->n || b >= d->n) return 0;
     size_t ra = misc_dsu_find(d, a);

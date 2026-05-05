@@ -2,6 +2,9 @@
 #include "dispatch/heaps.h"
 #include <stdlib.h>
 
+/* BINOMIAL TREE NODE: a binomial heap is a forest of binomial trees Bk where
+ * Bk has exactly 2^k nodes. Each node tracks its degree (rank), child list head,
+ * and right-sibling pointer; siblings let us walk the root list / child list. */
 typedef struct bnode {
     ds_key_t key;
     ds_val_t val;
@@ -35,6 +38,9 @@ void heap_binom_destroy(heap_binom_t* h) {
 
 size_t heap_binom_size(const heap_binom_t* h) { return h ? h->n : 0; }
 
+/* LINK OPERATION: combines two binomial trees of equal rank k into one of rank k+1
+ * by hanging the larger-key root y as a new child of the smaller-key root z. This
+ * is the atomic step that keeps the heap-order invariant during a meld. */
 static void binom_link(bnode* y, bnode* z) {
     y->parent = z;
     y->sibling = z->child;
@@ -54,6 +60,9 @@ static bnode* binom_merge_lists(bnode* a, bnode* b) {
     return head.sibling;
 }
 
+/* MELD (UNION): the core operation. Merges the two root lists by ascending degree
+ * and then walks the list collapsing any pair of equal-rank trees via binom_link
+ * — analogous to binary addition with carries. Runs in O(log n). */
 static bnode* binom_union(bnode* h1, bnode* h2) {
     bnode* h = binom_merge_lists(h1, h2);
     if (!h) return NULL;
@@ -78,6 +87,8 @@ static bnode* binom_union(bnode* h1, bnode* h2) {
     return h;
 }
 
+/* INSERT: build a singleton rank-0 binomial tree and meld it into the existing
+ * forest. Amortised O(1); worst case O(log n). Used to enqueue new incidents. */
 ds_status_t heap_binom_push(heap_binom_t* h, ds_key_t key, ds_val_t val) {
     if (!h) return DS_ERR_INVALID;
     bnode* n = (bnode*)calloc(1, sizeof(*n));
@@ -100,6 +111,9 @@ ds_status_t heap_binom_peek_min(const heap_binom_t* h, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* EXTRACT-MIN: scans the root list to find the smallest root, detaches it,
+ * reverses its child list (children are stored in descending rank), and melds
+ * those children back into the main forest. O(log n). */
 ds_status_t heap_binom_pop_min(heap_binom_t* h, ds_entry_t* out) {
     if (!h) return DS_ERR_INVALID;
     if (!h->head) return DS_ERR_EMPTY;

@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* DOUBLE-ENDED PQ as an INTERVAL (MIN-MAX) HEAP stored implicitly in a dynamic
+ * array (like a binary heap). Even-numbered levels enforce min-heap order;
+ * odd-numbered levels enforce max-heap order — so min lives at index 0 and max
+ * at index 1 or 2. The dispatcher uses this to pop the highest-severity incident
+ * while being able to drop the lowest-severity one to bound queue size. */
 struct depq {
     ds_entry_t* a;
     size_t n, cap;
@@ -162,6 +167,10 @@ ds_status_t depq_peek_max(const depq_t* d, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* POP-MIN (one end of the DEPQ): the minimum is always at the root (index 0)
+ * because the root is on a min-level. Standard heap pop: move last element to
+ * root and trickle-down, but using the interval-heap trickle that respects
+ * alternating min/max levels. */
 ds_status_t depq_pop_min(depq_t* d, ds_entry_t* out) {
     if (!d) return DS_ERR_INVALID;
     if (d->n == 0) return DS_ERR_EMPTY;
@@ -174,6 +183,10 @@ ds_status_t depq_pop_min(depq_t* d, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* POP-MAX (the OTHER end of the DEPQ): the maximum lives at level 1, i.e. the
+ * larger of indices 1 and 2 (whichever exists). Same trickle-down idea. This is
+ * what gives the DEPQ its O(log n) "drop the worst" capability — vital for the
+ * dispatcher to keep working on the most-severe incidents only. */
 ds_status_t depq_pop_max(depq_t* d, ds_entry_t* out) {
     if (!d) return DS_ERR_INVALID;
     if (d->n == 0) return DS_ERR_EMPTY;

@@ -3,11 +3,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* SEGMENT TREE — IMPLICIT ARRAY LAYOUT: a complete binary tree stored in an
+ * array of size ~4n. Node index 1 is the root (1-indexed), so children of node v
+ * are 2v and 2v+1. Each internal node stores the sum of its segment, supporting
+ * range-sum queries and point updates in O(log n). Used for rolling 60-second
+ * incident counts so the TUI can show live activity histograms cheaply. */
 typedef struct sp_seg {
     size_t n;
     long long* tree;
 } sp_seg_t;
 
+/* BUILD: allocate the implicit-tree array. Size 4n is the safe upper bound
+ * because the tree may be padded to the next power of two. Initialised to 0. */
 sp_seg_t* sp_seg_create(size_t n) {
     sp_seg_t* s = (sp_seg_t*)calloc(1, sizeof(sp_seg_t));
     if (!s) return NULL;
@@ -24,6 +31,8 @@ void sp_seg_destroy(sp_seg_t* s) {
     free(s);
 }
 
+/* POINT UPDATE: recurse down to the leaf for index `idx`, write the new value,
+ * and recompute parent sums on the way back up. O(log n). */
 static void seg_update_rec(long long* tree, size_t node, size_t l, size_t r,
                             size_t idx, long long val) {
     if (l == r) {
@@ -41,6 +50,9 @@ void sp_seg_update(sp_seg_t* s, size_t idx, long long value) {
     seg_update_rec(s->tree, 1, 0, s->n - 1, idx, value);
 }
 
+/* RANGE-SUM QUERY: classic 3-case recursion — fully outside (return 0), fully
+ * inside (return cached node sum), or partial overlap (recurse on both halves).
+ * Visits O(log n) nodes. */
 static long long seg_query_rec(const long long* tree, size_t node, size_t l, size_t r,
                                 size_t ql, size_t qr) {
     if (qr < l || r < ql) return 0;

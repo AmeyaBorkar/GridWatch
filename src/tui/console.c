@@ -23,6 +23,10 @@ static void tui_restore(void) {
     fflush(stdout);
 }
 
+/* Not an ADS file. Enables Windows VT (ANSI escape) processing on the console
+ * so the TUI renderer can use ESC[ sequences for colours, cursor movement, and
+ * screen clears the same way it would on a Unix terminal. Saves the prior
+ * console mode and registers an atexit handler to restore it cleanly. */
 void tui_console_init(void) {
     HANDLE ho = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE hi = GetStdHandle(STD_INPUT_HANDLE);

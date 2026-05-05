@@ -2,6 +2,9 @@
 #include "dispatch/heaps.h"
 #include <stdlib.h>
 
+/* SKEW HEAP NODE: like a leftist node but with NO s-value bookkeeping —
+ * the structural balance is enforced statistically by always swapping children
+ * during meld. Cheaper per-op constants than leftist. */
 typedef struct snode {
     ds_key_t key;
     ds_val_t val;
@@ -32,6 +35,9 @@ void heap_skew_destroy(heap_skew_t* h) {
 
 size_t heap_skew_size(const heap_skew_t* h) { return h ? h->n : 0; }
 
+/* MELD: like leftist meld but UNCONDITIONALLY swaps children at every step.
+ * No s-values, no checks — the swap-on-every-merge rule guarantees amortised
+ * O(log n) per op (proved via potential function). The classic self-adjusting DS. */
 static snode* smerge(snode* a, snode* b) {
     if (!a) return b;
     if (!b) return a;
@@ -42,6 +48,7 @@ static snode* smerge(snode* a, snode* b) {
     return a;
 }
 
+/* INSERT = MELD with a single-node tree (like leftist). */
 ds_status_t heap_skew_push(heap_skew_t* h, ds_key_t key, ds_val_t val) {
     if (!h) return DS_ERR_INVALID;
     snode* n = (snode*)calloc(1, sizeof(*n));
@@ -61,6 +68,7 @@ ds_status_t heap_skew_peek_min(const heap_skew_t* h, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* POP-MIN: drop the root and meld its two subtrees. Same shape as leftist. */
 ds_status_t heap_skew_pop_min(heap_skew_t* h, ds_entry_t* out) {
     if (!h) return DS_ERR_INVALID;
     if (!h->root) return DS_ERR_EMPTY;

@@ -2,6 +2,10 @@
 #include "dispatch/heaps.h"
 #include <stdlib.h>
 
+/* LEFTIST NODE: heap-ordered binary tree node. Field 's' is the s-value
+ * (null-path length) — distance to the nearest null descendant on the right
+ * spine. The leftist invariant s(left) >= s(right) keeps the right spine short
+ * (O(log n)), so meld can recurse down only the right spine. */
 typedef struct lnode {
     ds_key_t key;
     ds_val_t val;
@@ -33,6 +37,9 @@ void heap_leftist_destroy(heap_leftist_t* h) {
 
 size_t heap_leftist_size(const heap_leftist_t* h) { return h ? h->n : 0; }
 
+/* MELD: the heart of every leftist op. Recursively merges along the right spines,
+ * then restores the leftist property by swapping children if s(left) < s(right),
+ * and recomputes s. O(log n) because right spines are O(log n). */
 static lnode* lmerge(lnode* a, lnode* b) {
     if (!a) return b;
     if (!b) return a;
@@ -45,6 +52,8 @@ static lnode* lmerge(lnode* a, lnode* b) {
     return a;
 }
 
+/* INSERT = MELD with a single-node tree. Demonstrates how every operation on a
+ * meldable heap reduces to meld. */
 ds_status_t heap_leftist_push(heap_leftist_t* h, ds_key_t key, ds_val_t val) {
     if (!h) return DS_ERR_INVALID;
     lnode* n = (lnode*)calloc(1, sizeof(*n));
@@ -65,6 +74,8 @@ ds_status_t heap_leftist_peek_min(const heap_leftist_t* h, ds_entry_t* out) {
     return DS_OK;
 }
 
+/* POP-MIN: discard the root (which holds the minimum) and meld its two subtrees
+ * into the new root. Again everything reduces to meld. */
 ds_status_t heap_leftist_pop_min(heap_leftist_t* h, ds_entry_t* out) {
     if (!h) return DS_ERR_INVALID;
     if (!h->root) return DS_ERR_EMPTY;
