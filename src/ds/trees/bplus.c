@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* B+ TREE NODE: single struct that is either an INTERNAL routing node
+ * (keys + children pointers, no values) or a LEAF (keys + values + next
+ * pointer to the following leaf). The is_leaf flag picks the interpretation.
+ * Used as the incident log index — internals route searches, leaves hold the
+ * actual records and form a singly-linked list for fast range scans. */
 typedef struct bp_node {
     int is_leaf;
     int n_keys;
@@ -81,6 +86,9 @@ static int leaf_find(const bp_node_t* leaf, ds_key_t k) {
     return i;
 }
 
+/* B+ SEARCH descent: walk from the root choosing the child whose separator
+ * key range covers k, until reaching a leaf. All values live at the leaves,
+ * so even an exact-match get always descends to the bottom — height ~log_B n. */
 static bp_node_t* find_leaf(const tree_bplus_t* t, ds_key_t k) {
     bp_node_t* n = t->root;
     while (n && !n->is_leaf) {
@@ -125,6 +133,12 @@ typedef struct {
     bp_node_t* right;
 } split_info_t;
 
+/* B+ INSERT WITH SPLIT: recursive insert. When a leaf overflows we split it,
+ * link the right half into the leaf chain (via next), and propagate the
+ * separator key up. Internal overflows split similarly but push a key OUT
+ * (B+ semantics) to the parent. The recursion bubbles the split upward and
+ * the public wrapper grows the tree height by one when the root itself
+ * splits. */
 static ds_status_t insert_rec(tree_bplus_t* t, bp_node_t* n,
                               ds_key_t k, ds_val_t v, split_info_t* out_split) {
     out_split->did_split = 0;
@@ -230,6 +244,10 @@ void tree_bplus_inorder(const tree_bplus_t* t, ds_visitor_fn fn, void* user) {
     }
 }
 
+/* B+ RANGE SCAN — the headline feature: find the leaf containing lo via tree
+ * descent, then walk the LINKED LEAF LIST (next pointers) emitting keys until
+ * we pass hi. No re-descent needed per element, so a range of m results costs
+ * O(log_B n + m). This is why the incident log uses a B+ tree. */
 void tree_bplus_range(const tree_bplus_t* t, ds_key_t lo, ds_key_t hi,
                       ds_visitor_fn fn, void* user) {
     if (!t || !fn) return;

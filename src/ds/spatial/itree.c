@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* INTERVAL TREE NODE: stores an interval [lo, hi] keyed on lo (BST order),
+ * AUGMENTED with max — the largest hi anywhere in this subtree. The max
+ * augmentation is what makes stabbing queries efficient: a subtree can be
+ * pruned whenever the query point exceeds its max. Used to track unit
+ * shifts so we can ask "which units are on duty at time NOW?". */
 typedef struct it_node {
     double lo, hi;
     double max;
@@ -59,6 +64,11 @@ ds_status_t sp_itree_insert(sp_itree_t* t, double lo, double hi, ds_val_t v) {
     return ok ? DS_OK : DS_ERR_NOMEM;
 }
 
+/* INTERVAL TREE STABBING QUERY: find every interval that contains the point p.
+ * Uses the augmented subtree-max to PRUNE: if p > n->max no interval below n
+ * can contain p. Otherwise we recurse left, test this node, and only recurse
+ * right when p >= n->lo (since BST order is on lo, anything to the right
+ * starts no earlier than n). This is how on-duty units are found. */
 static void it_stab(const it_node_t* n, double p,
                      sp_rect_t* out, size_t max, size_t* cnt) {
     if (!n) return;

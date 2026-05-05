@@ -3,6 +3,10 @@
 #include "dispatch/trees.h"
 #include <stdlib.h>
 
+/* THREADED BST NODE: a normal BST node plus a right_thread flag. When
+ * right_thread is 1 the right pointer is reused as a "thread" pointing
+ * directly to the in-order successor instead of a child. Used for replay
+ * walks because it lets us iterate in order with no recursion or stack. */
 typedef struct th_node {
     ds_key_t key;
     ds_val_t val;
@@ -177,6 +181,10 @@ static const th_node_t* leftmost(const th_node_t* n) {
     return n;
 }
 
+/* THREADED IN-ORDER TRAVERSAL — STACK-FREE: start at the leftmost node, then
+ * at each step either follow the right thread directly to the successor (when
+ * right_thread is set) or descend to the leftmost of the right subtree. No
+ * recursion, no explicit stack — that's the whole point of threading. */
 void tree_threaded_inorder(const tree_threaded_t* t, ds_visitor_fn fn, void* user) {
     if (!t || !fn) return;
     const th_node_t* cur = leftmost(t->root);

@@ -2,6 +2,9 @@
 #include "dispatch/misc.h"
 #include <stdlib.h>
 
+/* PERSISTENT LIST NODE: an immutable cons cell — once allocated, val and tail
+ * never change. Multiple "versions" of the list can share the same tail
+ * suffix, which is the structural-sharing trick that makes persistence cheap. */
 struct misc_pnode {
     ds_val_t val;
     struct misc_pnode* tail;
@@ -30,6 +33,10 @@ DS_API void misc_plist_destroy(misc_plist_t* p) {
     free(p);
 }
 
+/* PERSISTENT CONS (prepend): allocates ONE new node whose tail is the old
+ * head and returns it as the new head. The previous head pointer is still
+ * valid and still points to the older version of the list — that is why
+ * undo/replay is free: just hold on to the old head pointer. */
 DS_API misc_pnode_t* misc_plist_push(misc_plist_t* p, misc_pnode_t* head, ds_val_t v) {
     if (!p) return NULL;
     if (p->count == p->cap) {

@@ -2,6 +2,10 @@
 #include "dispatch/trees.h"
 #include <stdlib.h>
 
+/* The below block uses an AVL TREE NODE with an explicit height field per node.
+ * Storing the height lets us compute the balance factor in O(1) during inserts/
+ * deletes so we can detect imbalance and rotate. Used to key the unit roster by
+ * unit id for O(log n) lookup. */
 typedef struct avl_node {
     ds_key_t key;
     ds_val_t val;
@@ -27,6 +31,9 @@ static int balance_factor(const avl_node_t* n) {
     return node_height(n->left) - node_height(n->right);
 }
 
+/* AVL ROTATION (right): single rotation that fixes a left-heavy imbalance by
+ * pulling the left child up to become the new subtree root. Preserves BST
+ * order while reducing height by one. */
 static avl_node_t* rotate_right(avl_node_t* y) {
     avl_node_t* x = y->left;
     y->left = x->right;
@@ -36,6 +43,9 @@ static avl_node_t* rotate_right(avl_node_t* y) {
     return x;
 }
 
+/* AVL ROTATION (left): mirror of rotate_right; fixes a right-heavy imbalance
+ * by pulling the right child up. Together with rotate_right these are the only
+ * structural primitives used to rebalance the tree. */
 static avl_node_t* rotate_left(avl_node_t* x) {
     avl_node_t* y = x->right;
     x->right = y->left;
@@ -45,6 +55,10 @@ static avl_node_t* rotate_left(avl_node_t* x) {
     return y;
 }
 
+/* AVL REBALANCE with single + DOUBLE ROTATIONS: inspects the balance factor
+ * and applies left-right or right-left double rotations when the imbalanced
+ * child leans the opposite way. Keeps tree height O(log n) so unit lookups
+ * stay logarithmic. */
 static avl_node_t* rebalance(avl_node_t* n) {
     update_height(n);
     int bf = balance_factor(n);
@@ -66,6 +80,9 @@ static avl_node_t* node_new(ds_key_t k, ds_val_t v) {
     return n;
 }
 
+/* AVL INSERT WITH REBALANCE: standard BST insert, then on the way back up the
+ * recursion stack each ancestor calls rebalance() so any node that became
+ * unbalanced by this insert is fixed in one pass. */
 static avl_node_t* insert_rec(avl_node_t* n, ds_key_t k, ds_val_t v,
                               ds_status_t* st) {
     if (!n) {
@@ -86,6 +103,10 @@ static avl_node_t* min_node(avl_node_t* n) {
     return n;
 }
 
+/* AVL DELETE WITH REBALANCE: classic BST deletion (with in-order successor
+ * replacement for two-child nodes), then rebalance every ancestor on the
+ * unwind to maintain the AVL height invariant. Lets units leave the roster
+ * without degrading lookup performance. */
 static avl_node_t* delete_rec(avl_node_t* n, ds_key_t k, ds_status_t* st) {
     if (!n) { *st = DS_ERR_NOT_FOUND; return NULL; }
     if (k < n->key)      n->left  = delete_rec(n->left,  k, st);

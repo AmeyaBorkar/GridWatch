@@ -2,6 +2,10 @@
 #include "dispatch/trees.h"
 #include <stdlib.h>
 
+/* RED-BLACK TREE NODE: each node carries a color (RED or BLACK) and a parent
+ * pointer. The color invariants (root is black, no two reds in a row, every
+ * root->NIL path has equal black-count) bound the tree height to ~2 log n.
+ * Used as the pending-incident index keyed by spawn time. */
 typedef enum { RB_RED = 0, RB_BLACK = 1 } rb_color_t;
 
 typedef struct rb_node {
@@ -27,6 +31,8 @@ static rb_node_t* node_new(tree_rb_t* t, ds_key_t k, ds_val_t v) {
     return n;
 }
 
+/* RB ROTATION (left): structural primitive used by both insert_fixup and
+ * delete_fixup to rebuild the tree shape while preserving BST order. */
 static void rotate_left(tree_rb_t* t, rb_node_t* x) {
     rb_node_t* y = x->right;
     x->right = y->left;
@@ -39,6 +45,7 @@ static void rotate_left(tree_rb_t* t, rb_node_t* x) {
     x->parent = y;
 }
 
+/* RB ROTATION (right): mirror of rotate_left, also used by both fixups. */
 static void rotate_right(tree_rb_t* t, rb_node_t* y) {
     rb_node_t* x = y->left;
     y->left = x->right;
@@ -51,6 +58,10 @@ static void rotate_right(tree_rb_t* t, rb_node_t* y) {
     y->parent = x;
 }
 
+/* RB INSERT FIXUP: the new node z is colored RED; this loop walks up the
+ * tree RECOLORING (uncle red case) or ROTATING (uncle black case) until the
+ * red-red violation is gone, finally repainting the root black. Restores all
+ * RB invariants without rebuilding the tree. */
 static void insert_fixup(tree_rb_t* t, rb_node_t* z) {
     while (z->parent->color == RB_RED) {
         if (z->parent == z->parent->parent->left) {
@@ -96,6 +107,10 @@ static rb_node_t* tree_min(tree_rb_t* t, rb_node_t* n) {
     return n;
 }
 
+/* RB DELETE FIXUP: when removing a black node breaks the equal-black-count
+ * invariant, x carries an extra "double black" charge. The four CLRS cases
+ * (sibling-red, sibling-black with various nephew colors) recolor and rotate
+ * to discharge it back to the root or absorb it into a red node. */
 static void delete_fixup(tree_rb_t* t, rb_node_t* x) {
     while (x != t->root && x->color == RB_BLACK) {
         if (x == x->parent->left) {
@@ -186,6 +201,10 @@ void tree_rb_destroy(tree_rb_t* t) {
     free(t);
 }
 
+/* RB INSERT: standard BST descent to find the slot, link the new red node,
+ * then call insert_fixup to restore color invariants. Used to insert pending
+ * incidents keyed by spawn time so the earliest pending incident is always
+ * findable in O(log n). */
 ds_status_t tree_rb_insert(tree_rb_t* t, ds_key_t k, ds_val_t v) {
     if (!t) return DS_ERR_INVALID;
     rb_node_t* y = t->nil;
@@ -218,6 +237,10 @@ ds_status_t tree_rb_get(const tree_rb_t* t, ds_key_t k, ds_val_t* out) {
     return DS_ERR_NOT_FOUND;
 }
 
+/* RB DELETE: locate node, splice it out using transplant (with in-order
+ * successor for two-child case), and if a black node was removed call
+ * delete_fixup to restore the color invariants. Removes resolved incidents
+ * from the pending index. */
 ds_status_t tree_rb_delete(tree_rb_t* t, ds_key_t k) {
     if (!t) return DS_ERR_INVALID;
     rb_node_t* z = t->root;

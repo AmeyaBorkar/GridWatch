@@ -37,6 +37,13 @@ static int is_search_char(int c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '&' || c == ' ';
 }
 
+/* Keyboard input handler — not an ADS, but the bridge between the TUI and the
+ * simulation. Drains any buffered key presses with NON-BLOCKING reads
+ * (tui_kbhit + tui_getch never wait), and translates each key into a sim
+ * command: space toggles pause, s force-spawns an incident, +/- adjust spawn
+ * rate, Tab switches search mode, Backspace/Enter drive the search box, and
+ * printable characters extend the search string (which then refreshes the
+ * autocomplete/fuzzy completions). */
 void tui_handle_input(sim_t* sim, tui_state_t* st, double* spawn_rate) {
     while (tui_kbhit()) {
         int c = tui_getch();

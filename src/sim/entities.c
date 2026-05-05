@@ -42,6 +42,10 @@ static int random_main_cc_node(struct sim* S) {
     return 0;
 }
 
+/* UNIT CREATION: appends a new unit to the dynamic array (geometric growth)
+ * and registers it in the secondary indices — AVL by id for O(log n) lookup,
+ * QUADTREE for nearest-idle spatial search, INTERVAL TREE for shift coverage.
+ * Each index lets a different query about units run efficiently. */
 static int add_unit(struct sim* S, sim_station_t* st) {
     if (S->n_units == S->cap_units) {
         size_t nc = S->cap_units ? S->cap_units * 2 : 16;
@@ -122,12 +126,20 @@ int sim_init_stations_units(struct sim* S) {
     return 0;
 }
 
+/* UNIT/INCIDENT DESTRUCTION: tears down the underlying arrays. The secondary
+ * index structures (AVL, RB, B+, etc.) own their own nodes and are freed
+ * separately by the sim shutdown path. */
 void sim_free_entities(struct sim* S) {
     free(S->stations); S->stations = NULL;
     free(S->units); S->units = NULL;
     free(S->incidents); S->incidents = NULL;
 }
 
+/* INCIDENT SPAWN + MULTI-INDEX FAN-OUT: creates one new incident record and
+ * threads it into every relevant ADS — B+ TREE incident log (range scans),
+ * RED-BLACK + THREADED BSTs keyed by spawn time (pending queue + replay),
+ * a PRIORITY DEQUE by severity, the PERSISTENT LIST history, and a SEGMENT
+ * TREE rolling counter. One write, many indices. */
 sim_incident_t* sim_spawn_incident(struct sim* S, int force) {
     (void)force;
     if (S->n_incidents == S->cap_incidents) {
@@ -174,6 +186,9 @@ sim_incident_t* sim_spawn_incident(struct sim* S, int force) {
     return inc;
 }
 
+/* PATH PLANNING via DIJKSTRA shortest path on the road graph. Computes the
+ * full predecessor array, reconstructs the node sequence, and stores it on
+ * the unit so subsequent ticks can step along it without re-running Dijkstra. */
 static void start_unit_path(struct sim* S, sim_unit_t* u, int target, int incident_id) {
     double* dist = (double*)malloc(sizeof(double) * S->n_nodes);
     int*    prev = (int*)malloc(sizeof(int) * S->n_nodes);
@@ -198,6 +213,9 @@ static void start_unit_path(struct sim* S, sim_unit_t* u, int target, int incide
     free(dist); free(prev);
 }
 
+/* INCIDENT STATE TRANSITION on arrival: ENROUTE -> ONSCENE (and arms an
+ * on-scene timer whose duration scales with severity), or RETURNING -> IDLE.
+ * Centralizes the FSM edges that fire when a unit reaches its target. */
 void sim_unit_on_arrive(struct sim* S, sim_unit_t* u) {
     u->cur_node = u->target_node;
     u->target_node = -1;
@@ -225,6 +243,11 @@ void sim_unit_on_arrive(struct sim* S, sim_unit_t* u) {
     }
 }
 
+/* PATH-FOLLOWING STEP + ON-SCENE TIMER: each tick the unit either counts down
+ * its on-scene timer (resolving the incident and removing it from the RB +
+ * threaded BST pending indices when it hits zero), or advances along its
+ * precomputed Dijkstra path by speed*dt distance, possibly crossing several
+ * graph nodes per tick. */
 static void advance_unit(struct sim* S, sim_unit_t* u, double dt) {
     if (u->state == SIM_UNIT_IDLE) return;
     if (u->state == SIM_UNIT_ONSCENE) {
@@ -285,6 +308,7 @@ static void advance_unit(struct sim* S, sim_unit_t* u, double dt) {
     if (u->path_idx >= u->path_len) sim_unit_on_arrive(S, u);
 }
 
+/* Per-tick driver: advances every unit's lifecycle by dt. */
 void sim_tick_units(struct sim* S, double dt) {
     for (size_t i = 0; i < S->n_units; i++) advance_unit(S, &S->units[i], dt);
 }
@@ -306,6 +330,11 @@ void sim_rebuild_idle_quad(struct sim* S) {
 }
 
 /* dispatcher */
+/* DISPATCH: find the closest idle unit of the right type to an incident.
+ * Uses the QUADTREE for spatial nearest-candidates, AVL for id->unit lookup,
+ * DIJKSTRA for true road-distance ranking, then updates many indices on
+ * commit (RB/threaded delete from pending, SPLAY insert into recent cache,
+ * SKIP LIST eta board, TREAP station load counter). */
 int sim_try_dispatch(struct sim* S, sim_incident_t* inc) {
     if (!inc || inc->assigned_unit >= 0 || inc->resolved) return -1;
     sim_unit_type_t want = unit_for_incident(inc->type);

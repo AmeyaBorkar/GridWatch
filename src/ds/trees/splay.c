@@ -2,6 +2,9 @@
 #include "dispatch/trees.h"
 #include <stdlib.h>
 
+/* SPLAY TREE NODE: a plain BST node — splay trees carry no balance metadata
+ * because rebalancing is done implicitly on every access. Used as the
+ * recently-dispatched unit cache: hot units bubble to the root automatically. */
 typedef struct splay_node {
     ds_key_t key;
     ds_val_t val;
@@ -14,6 +17,9 @@ struct tree_splay {
     size_t count;
 };
 
+/* SPLAY single ROTATION (right) — the ZIG step. Used directly when the
+ * accessed node is one level below the root, and as part of zig-zig/zig-zag
+ * when it is two levels below. */
 static splay_node_t* rotate_right(splay_node_t* y) {
     splay_node_t* x = y->left;
     y->left = x->right;
@@ -21,6 +27,7 @@ static splay_node_t* rotate_right(splay_node_t* y) {
     return x;
 }
 
+/* SPLAY single ROTATION (left) — mirror of rotate_right. */
 static splay_node_t* rotate_left(splay_node_t* x) {
     splay_node_t* y = x->right;
     x->right = y->left;
@@ -29,6 +36,11 @@ static splay_node_t* rotate_left(splay_node_t* x) {
 }
 
 /* Top-down splay. After this, the node with the closest key is root. */
+/* SPLAY OPERATION (top-down) — implements the ZIG, ZIG-ZIG (same-direction
+ * grandparent rotation) and ZIG-ZAG (opposite-direction) cases by partitioning
+ * the tree into a left and right spine via the header sentinel and reassembling
+ * at the end. Amortized O(log n) and brings the touched key to the root, which
+ * is what keeps recently-dispatched units fast to look up again. */
 static splay_node_t* splay(splay_node_t* root, ds_key_t key) {
     if (!root) return NULL;
     splay_node_t header;
@@ -93,6 +105,9 @@ void tree_splay_destroy(tree_splay_t* t) {
     free(t);
 }
 
+/* SPLAY INSERT: splay first so the closest key sits at the root, then attach
+ * the new node as the new root by splitting the old root's subtree. Every
+ * insert ends with the new node ON TOP — this is the key trick. */
 ds_status_t tree_splay_insert(tree_splay_t* t, ds_key_t k, ds_val_t v) {
     if (!t) return DS_ERR_INVALID;
     splay_node_t* n = (splay_node_t*)malloc(sizeof *n);
@@ -118,6 +133,9 @@ ds_status_t tree_splay_insert(tree_splay_t* t, ds_key_t k, ds_val_t v) {
     return DS_OK;
 }
 
+/* SPLAY FIND: every successful (or near-miss) lookup also splays — that is
+ * what makes hot keys progressively cheaper on subsequent accesses, perfect
+ * for the recently-dispatched-unit cache. */
 ds_status_t tree_splay_get(tree_splay_t* t, ds_key_t k, ds_val_t* out) {
     if (!t || !t->root) return DS_ERR_NOT_FOUND;
     t->root = splay(t->root, k);
@@ -126,6 +144,9 @@ ds_status_t tree_splay_get(tree_splay_t* t, ds_key_t k, ds_val_t* out) {
     return DS_OK;
 }
 
+/* SPLAY DELETE: splay the target to the root, then JOIN its left and right
+ * subtrees by splaying the largest key of the left subtree to its root (giving
+ * it a NULL right child) and hanging the right subtree there. */
 ds_status_t tree_splay_delete(tree_splay_t* t, ds_key_t k) {
     if (!t || !t->root) return DS_ERR_NOT_FOUND;
     t->root = splay(t->root, k);
