@@ -16,7 +16,24 @@
 #define RADIO_ROW      26
 #define RADIO_H        3
 #define SEARCH_ROW     29
-#define HINT_ROW       31
+
+/* Row layout under the map.
+ *   rows 2..MAP_BOTTOM_ROW   map + stats panel
+ *   DIV1_ROW                 horizontal rule with ┴ at the column divider
+ *   RADIO_ROW0..+RADIO_LINES radio log
+ *   DIV2_ROW                 full-width horizontal rule
+ *   SEARCH_INPUT_ROW         search input
+ *   COMPLETIONS_ROW          completion list
+ *   BOX_BOTTOM_ROW           bottom border */
+#define MAP_BOTTOM_ROW    (MAP_ROW0 + MAP_INNER_H)         /* 25 */
+#define DIV1_ROW          (MAP_BOTTOM_ROW + 1)             /* 26 */
+#define RADIO_ROW0        (DIV1_ROW + 1)                   /* 27 */
+#define RADIO_LINES       3
+#define DIV2_ROW          (RADIO_ROW0 + RADIO_LINES)       /* 30 */
+#define SEARCH_INPUT_ROW  (DIV2_ROW + 1)                   /* 31 */
+#define COMPLETIONS_ROW   (SEARCH_INPUT_ROW + 1)           /* 32 */
+#define BOX_BOTTOM_ROW    (COMPLETIONS_ROW + 1)            /* 33 */
+#define HINT_ROW          SEARCH_INPUT_ROW
 
 static char   g_buf[TUI_BUF_CAP];
 static size_t g_len = 0;
@@ -123,7 +140,7 @@ static void draw_box_borders(void) {
     for (int i = 0; i < STATS_W; ++i)     buf_puts("\xe2\x94\x80");
     buf_puts("\xe2\x95\xae"); /* ╮ */
 
-    for (int r = 2; r <= MAP_INNER_H + 1; ++r) {
+    for (int r = MAP_ROW0 + 1; r <= MAP_BOTTOM_ROW; ++r) {
         move_to(r, 1);
         buf_puts("\xe2\x94\x82");                       /* │ */
         move_to(r, MAP_INNER_W + 2);
@@ -132,29 +149,29 @@ static void draw_box_borders(void) {
         buf_puts("\xe2\x94\x82");
     }
 
-    move_to(MAP_INNER_H + 2, 1);
+    move_to(DIV1_ROW, 1);
     buf_puts("\xe2\x94\x9c"); /* ├ */
     for (int i = 0; i < MAP_INNER_W; ++i) buf_puts("\xe2\x94\x80");
     buf_puts("\xe2\x94\xb4"); /* ┴ */
     for (int i = 0; i < STATS_W; ++i)     buf_puts("\xe2\x94\x80");
     buf_puts("\xe2\x94\xa4"); /* ┤ */
 
-    for (int r = MAP_INNER_H + 3; r <= MAP_INNER_H + 5; ++r) {
+    for (int r = RADIO_ROW0; r < DIV2_ROW; ++r) {
         move_to(r, 1);         buf_puts("\xe2\x94\x82");
         move_to(r, TOTAL_W);   buf_puts("\xe2\x94\x82");
     }
 
-    move_to(MAP_INNER_H + 6, 1);
+    move_to(DIV2_ROW, 1);
     buf_puts("\xe2\x94\x9c");
     for (int i = 0; i < TOTAL_W - 2; ++i) buf_puts("\xe2\x94\x80");
     buf_puts("\xe2\x94\xa4");
 
-    for (int r = MAP_INNER_H + 7; r <= MAP_INNER_H + 8; ++r) {
+    for (int r = SEARCH_INPUT_ROW; r <= COMPLETIONS_ROW; ++r) {
         move_to(r, 1);         buf_puts("\xe2\x94\x82");
         move_to(r, TOTAL_W);   buf_puts("\xe2\x94\x82");
     }
 
-    move_to(MAP_INNER_H + 9, 1);
+    move_to(BOX_BOTTOM_ROW, 1);
     buf_puts("\xe2\x95\xb0"); /* ╰ */
     for (int i = 0; i < TOTAL_W - 2; ++i) buf_puts("\xe2\x94\x80");
     buf_puts("\xe2\x95\xaf"); /* ╯ */
@@ -445,13 +462,13 @@ static void render_radio(const sim_t* sim) {
         }
         ++p;
     }
-    int start = (line_count > 3) ? line_count - 3 : 0;
+    int start = (line_count > RADIO_LINES) ? line_count - RADIO_LINES : 0;
     int shown = 0;
     fg(220, 222, 230);
-    for (int i = start; i < line_count && shown < 3; ++i) {
+    for (int i = start; i < line_count && shown < RADIO_LINES; ++i) {
         if (lines[i][0] == '\0') continue;
-        clear_row(MAP_INNER_H + 3 + shown, 2, TOTAL_W);
-        move_to(MAP_INNER_H + 3 + shown, 3);
+        clear_row(RADIO_ROW0 + shown, 2, TOTAL_W);
+        move_to(RADIO_ROW0 + shown, 3);
         fg(160, 220, 255); buf_puts("Radio ");
         fg(220, 222, 230);
         int maxlen = TOTAL_W - 10;
@@ -464,16 +481,16 @@ static void render_radio(const sim_t* sim) {
         }
         ++shown;
     }
-    while (shown < 3) {
-        clear_row(MAP_INNER_H + 3 + shown, 2, TOTAL_W);
+    while (shown < RADIO_LINES) {
+        clear_row(RADIO_ROW0 + shown, 2, TOTAL_W);
         ++shown;
     }
     reset_sgr();
 }
 
 static void render_search(const tui_state_t* st) {
-    clear_row(MAP_INNER_H + 7, 2, TOTAL_W);
-    move_to(MAP_INNER_H + 7, 3);
+    clear_row(SEARCH_INPUT_ROW, 2, TOTAL_W);
+    move_to(SEARCH_INPUT_ROW, 3);
     fg(160, 220, 255);
     buf_puts(st->search_mode == TUI_SEARCH_FUZZY ? "Fuzzy:  " : "Search: ");
     fg(220, 222, 230);
@@ -484,8 +501,8 @@ static void render_search(const tui_state_t* st) {
         buf_printf("%s", st->search);
     }
     /* Completions. */
-    clear_row(MAP_INNER_H + 8, 2, TOTAL_W);
-    move_to(MAP_INNER_H + 8, 3);
+    clear_row(COMPLETIONS_ROW, 2, TOTAL_W);
+    move_to(COMPLETIONS_ROW, 3);
     fg(140, 145, 160);
     buf_puts(" > ");
     for (size_t i = 0; i < st->n_completions && i < 5; ++i) {
