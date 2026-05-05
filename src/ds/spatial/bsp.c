@@ -5,6 +5,10 @@
 
 #define BSP_LEAF_CAP 4
 
+/* The below block uses the BSP TREE node layout: an internal node stores a
+ * splitting axis + scalar (an axis-aligned hyperplane) carving space into
+ * two half-spaces; leaves bucket up to BSP_LEAF_CAP points. The static
+ * partition is what enables fast point-locate over fixed station locations. */
 typedef struct bn {
     int leaf;
     /* Leaf data: */
@@ -36,6 +40,10 @@ static int cmp_y(const void* a, const void* b) {
     return 0;
 }
 
+/* The below block uses BSP TREE BUILD: pick a splitting line (axis alternates
+ * with depth, split value = median on that axis), then recurse on each side
+ * until the leaf cap is reached. Median-splitting keeps the tree balanced so
+ * that point-locate is O(log n) over the static station layout. */
 static bn_t* bsp_build_rec(sp_point_t* pts, size_t n, int depth) {
     bn_t* node = (bn_t*)calloc(1, sizeof(bn_t));
     if (!node) return NULL;
@@ -107,6 +115,10 @@ int sp_bsp_depth(const sp_bsp_t* t) {
     return bsp_depth_rec(t->root);
 }
 
+/* The below block uses BSP POINT-LOCATE: walk the tree comparing the query
+ * coordinate against each splitting plane (left if v < split else right)
+ * until a leaf is reached. The leaf's bucket is the BSP region containing
+ * that point — useful for "which partition does this map click belong to?". */
 /* Return points in the leaf region containing (x,y). */
 size_t sp_bsp_region(const sp_bsp_t* t, double x, double y, sp_point_t* out, size_t max) {
     if (!t || !t->root) return 0;

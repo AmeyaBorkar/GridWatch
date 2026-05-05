@@ -5,6 +5,10 @@
 #include <math.h>
 #include <float.h>
 
+/* The below block uses the KD-TREE node layout: each node holds a 2D point
+ * plus the `axis` it splits on (alternating x/y by depth). The splitting
+ * axis is what lets the tree partition k-D space into nested half-planes,
+ * which the simulation uses for fast 2D point queries. */
 typedef struct kd_node {
     sp_point_t p;
     int axis; /* 0 = x, 1 = y */
@@ -32,6 +36,10 @@ static int cmp_y(const void* a, const void* b) {
     return 0;
 }
 
+/* The below block uses the KD-TREE BUILD by MEDIAN SPLIT: sort the slab on
+ * the current axis, take the median as the node, recurse on each half with
+ * the axis toggled. Building from the median keeps the tree balanced so that
+ * later nearest-neighbour queries run in expected O(log n). */
 static kd_node_t* kd_build_rec(sp_point_t* pts, size_t n, int depth) {
     if (n == 0) return NULL;
     int axis = depth % 2;
@@ -135,6 +143,11 @@ static void heap_down(kd_item_t* h, size_t n, size_t i) {
     }
 }
 
+/* The below block uses KD-TREE NEAREST-NEIGHBOUR with BOUNDING-BOX PRUNING.
+ * It descends into the closer child first, maintains the k best points in a
+ * bounded max-heap, and only visits the far child when its splitting plane
+ * could still contain something closer than the current worst. The pruning
+ * is what turns brute-force O(n) k-NN into expected O(log n) per query. */
 static void kd_nn_rec(const kd_node_t* node, double qx, double qy,
                        kd_item_t* heap, size_t* hn, size_t k) {
     if (!node) return;

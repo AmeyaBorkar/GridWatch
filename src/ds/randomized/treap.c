@@ -6,6 +6,11 @@
 uint64_t rnd__mix_u64(uint64_t* state);
 uint64_t rnd__fresh_state(void);
 
+/* The below block uses the TREAP node layout: BST-ordered by `key` and
+ * heap-ordered by a random `priority`. Because priorities are random, the
+ * resulting tree shape mimics that of a BST built on a random key permutation,
+ * so it stays balanced in expectation — used here for per-station workload
+ * ranking without needing rotations to enforce balance. */
 typedef struct treap_node_s {
     ds_key_t key;
     ds_val_t val;
@@ -20,6 +25,10 @@ struct rnd_treap_s {
     uint64_t      rng;
 };
 
+/* The below block uses the TREAP SPLIT primitive: walks down by BST key and
+ * detaches the tree into (<k) and (>=k) halves while preserving heap order in
+ * each half. Together with merge it replaces the explicit rotations a normal
+ * randomized BST would need on insert/delete. */
 /* Split `t` by key: left subtree has keys < k, right has keys >= k. */
 static void treap_split(treap_node_t* t, ds_key_t k,
                         treap_node_t** lo, treap_node_t** hi) {
@@ -33,6 +42,10 @@ static void treap_split(treap_node_t* t, ds_key_t k,
     }
 }
 
+/* The below block uses TREAP MERGE: combines two key-disjoint treaps into one
+ * by always making the higher-priority root the parent (heap property), then
+ * recursing on the appropriate side. Pairs with split to do insert/delete
+ * without rotations. */
 /* Merge two treaps where all keys in `l` < all keys in `r`. */
 static treap_node_t* treap_merge(treap_node_t* l, treap_node_t* r) {
     if (!l) return r;
@@ -77,6 +90,10 @@ static treap_node_t* treap_find(treap_node_t* n, ds_key_t k) {
     return NULL;
 }
 
+/* The below block uses TREAP INSERT via split+merge: split the tree at `k`,
+ * sandwich the new node (with a random priority) between the halves, and let
+ * merge restore the heap order. Expected O(log n) — keeps the per-station
+ * workload index balanced as units are dispatched and freed. */
 ds_status_t rnd_treap_insert(rnd_treap_t* t, ds_key_t k, ds_val_t v) {
     if (!t) return DS_ERR_INVALID;
     treap_node_t* existing = treap_find(t->root, k);
@@ -106,6 +123,9 @@ ds_status_t rnd_treap_get(const rnd_treap_t* t, ds_key_t k, ds_val_t* out) {
     return DS_OK;
 }
 
+/* The below block uses TREAP DELETE: locate the node by BST descent, then
+ * splice it out by merging its two subtrees (which already satisfy the heap
+ * property). Used when a station's workload entry is removed from the index. */
 ds_status_t rnd_treap_delete(rnd_treap_t* t, ds_key_t k) {
     if (!t) return DS_ERR_INVALID;
     /* Find node and its parent; splice by merging its two children. */

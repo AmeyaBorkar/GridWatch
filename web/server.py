@@ -25,6 +25,9 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+# FFI BRIDGE: `dispatch_py` is the ctypes wrapper around libdispatch.dll.
+# Importing Sim here is what lets this Python process drive the C ABI directly
+# (no subprocess, no IPC) — every Sim method below ultimately becomes a C call.
 from dispatch_py import (  # noqa: E402
     DispatchError,
     Sim,
@@ -39,6 +42,9 @@ app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
 # ---------------------------------------------------------------------------
 # Managed simulation + background ticker
 # ---------------------------------------------------------------------------
+# BACKGROUND TICKER THREAD: owns the single C-side Sim handle behind a lock
+# and advances it at TICK_HZ via sim_tick(dt). Decoupling simulation time from
+# HTTP requests lets the browser merely poll /state to get a fresh snapshot.
 class SimRunner:
     """Owns the Sim, its lock, and a background ticker thread."""
 
@@ -81,6 +87,9 @@ class SimRunner:
     def last_error(self) -> Optional[str]:
         return self._last_error
 
+    # 30 HZ TICKER LOOP: every ~33 ms, take the lock and call into the C ABI's
+    # sim_tick(dt). Catching up via `next_t` keeps cadence steady even if a
+    # tick runs long.
     def _loop(self) -> None:
         dt = 1.0 / self.TICK_HZ
         next_t = time.monotonic()
@@ -120,6 +129,9 @@ def _require_sim():
     return None
 
 
+# SNAPSHOT BUILDER: copies the C-side view structs (nodes, roads, units,
+# incidents, metrics) into plain Python dicts ready for JSON serialization.
+# Crossing the FFI boundary once per /state poll keeps the wire format simple.
 def _snapshot() -> Dict[str, Any]:
     sim = RUNNER.sim
     assert sim is not None
@@ -185,6 +197,9 @@ def index():
     return send_from_directory(str(STATIC_DIR), "index.html")
 
 
+# /STATE ENDPOINT: returns the latest snapshot as JSON for the browser to
+# render the map, leaderboards and metrics panels. Lock-protected so the
+# background ticker can't mutate the C state mid-snapshot.
 @app.route("/state")
 def state():
     err = _require_sim()

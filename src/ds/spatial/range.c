@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The below block uses the RANGE TREE node layout: a primary BST on x where
+ * EACH node also stores its subtree's points in a secondary y-sorted array.
+ * That fractionally-cascaded second dimension is what makes 2D orthogonal
+ * range queries (used by the UI viewport filter) efficient. */
 typedef struct rn {
     sp_point_t p;      /* median point (by x) */
     struct rn* l;
@@ -31,6 +35,10 @@ static int cmp_py(const void* a, const void* b) {
     return 0;
 }
 
+/* The below block uses RANGE TREE BUILD: at each node, take the median by x
+ * (so the primary x-BST is balanced) and snapshot the subtree's points sorted
+ * by y as the secondary structure. Build cost is O(n log n) so that every
+ * later viewport query can answer in O(log^2 n + k). */
 /* pts must be sorted by x. */
 static rn_t* build_rec(sp_point_t* pts, size_t n) {
     if (n == 0) return NULL;
@@ -88,6 +96,11 @@ static void rn_report(const rn_t* n, double y1, double y2,
     }
 }
 
+/* The below block uses 2D RANGE QUERY: descend the primary x-BST; whenever a
+ * subtree's x-range lies entirely inside [x1,x2] (the canonical subtree),
+ * scan only its secondary y-sorted list filtered by [y1,y2]. Otherwise
+ * recurse on both sides. This is how the UI viewport filter reports all
+ * points inside an axis-aligned rectangle. */
 static void rn_search(const rn_t* n, double x1, double y1, double x2, double y2,
                        sp_point_t* out, size_t max, size_t* cnt) {
     if (!n) return;

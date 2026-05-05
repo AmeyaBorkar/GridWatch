@@ -3,6 +3,10 @@
 #include <string.h>
 
 void sim_metrics_tick(struct sim* S, double dt) {
+    /* The below block touches the SEGMENT TREE that holds rolling 60-second
+     * incident counts (`seg_incidents60`). When the wall clock crosses into
+     * a new 1-second bucket, we point-update the segment tree to zero-out
+     * that bucket — so any later range query sums only the live window. */
     S->seg_bucket_accum += dt;
     if (S->seg_bucket_accum >= 1.0) {
         int new_bucket = (int)(((long long)S->sim_time) % 60);
@@ -16,6 +20,11 @@ void sim_metrics_tick(struct sim* S, double dt) {
         S->seg_bucket_accum -= 1.0;
     }
 
+    /* The below block rebuilds a SUCCINCT BITVECTOR (one bit per graph node,
+     * set iff that node currently has an unresolved incident). The bv is
+     * rebuilt and re-`build`'d each tick so its rank/select index stays in
+     * sync, giving O(1) "is node i hot?" / "how many hot nodes up to i?"
+     * lookups for downstream dispatch heuristics. */
     /* Rebuild the bit vector of "has_incident" per node (bv). */
     if (S->bv_has_incident) {
         misc_bv_destroy(S->bv_has_incident);

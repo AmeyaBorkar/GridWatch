@@ -80,6 +80,9 @@ class Severity(IntEnum):
 # ---------------------------------------------------------------------------
 # ctypes Structures (binary layout must match sim.h exactly)
 # ---------------------------------------------------------------------------
+# FFI STRUCT MIRRORS: each ctypes.Structure below has the EXACT field types
+# and order of the matching `sim.h` C struct, so the DLL writes directly into
+# Python-allocated memory and we read fields back as native attributes.
 class _NodeView(Structure):
     _fields_ = [
         ("id", c_int),
@@ -282,6 +285,10 @@ def _load_dll(path: Optional[Path] = None) -> ctypes.CDLL:
     return dll
 
 
+# FFI BINDING: ctypes does not introspect C headers, so each sim_* export must
+# have its argtypes (parameter signature) and restype (return type) declared
+# explicitly. `c_void_p` here turns the opaque C handle (sim_t*) into something
+# Python can hold and pass back without dereferencing.
 def _bind(dll: ctypes.CDLL) -> None:
     """Attach argtypes/restype to every exported sim_* function."""
     # lifecycle
@@ -354,6 +361,9 @@ class Sim:
     MAX_MATCHES = 64
     LOG_TAIL_DEFAULT = 4096
 
+    # FFI WRAPPER: sim_create returns an opaque C handle that we stash on
+    # `self._handle`. Every later method call funnels that handle back into
+    # the matching C function — Python never inspects the struct internals.
     def __init__(
         self,
         rows: int = 10,
@@ -394,6 +404,9 @@ class Sim:
             raise DispatchError("Sim has been closed")
         return self._handle
 
+    # FFI WRAPPER: tick/control calls — each one is a single C call across the
+    # ctypes boundary. `c_double(...)` boxes the Python float into the exact
+    # 8-byte layout the C ABI expects.
     # -- lifecycle / control ------------------------------------------------
     def tick(self, dt: float = 0.1) -> None:
         self._dll.sim_tick(self._h(), c_double(float(dt)))
@@ -410,6 +423,10 @@ class Sim:
     def force_spawn(self) -> int:
         return int(self._dll.sim_force_spawn(self._h()))
 
+    # FFI WRAPPER: snapshot calls allocate a fixed-size ctypes array, hand it
+    # to the C function as a writable buffer, and read the returned count to
+    # know how many entries the DLL filled in. The Python NamedTuples below
+    # give callers a clean, immutable view over each row.
     # -- snapshots ----------------------------------------------------------
     def nodes(self) -> List[NodeView]:
         buf = (_NodeView * self.MAX_NODES)()
@@ -472,6 +489,8 @@ class Sim:
             for b in buf[:n]
         ]
 
+    # FFI WRAPPER: search APIs return arrays of C strings (char**). We collect
+    # them into Python str objects, decoding the underlying UTF-8 bytes.
     # -- search -------------------------------------------------------------
     def _collect_strings(self, fn, *args, max_items: int) -> List[str]:
         buf = (c_char_p * max_items)()
@@ -505,6 +524,9 @@ class Sim:
     def node_by_street(self, name: str) -> int:
         return int(self._dll.sim_node_by_street(self._h(), name.encode("utf-8")))
 
+    # FFI WRAPPER: metrics + log calls. `byref(m)` passes a pointer to the
+    # Python-allocated _Metrics struct so the DLL can fill it in place; for
+    # the log tail we hand over a pre-sized string buffer.
     # -- metrics + log ------------------------------------------------------
     def metrics(self) -> Metrics:
         m = _Metrics()

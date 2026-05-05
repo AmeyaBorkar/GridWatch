@@ -6,6 +6,11 @@
 
 #define RT_MAX 8
 
+/* The below block uses the R-TREE node layout: each node packs up to RT_MAX
+ * entries (rectangles + child pointer or data payload) plus a single MBR
+ * (bx1..by2) covering them all. The MBR is what lets a search prune entire
+ * subtrees that can't overlap the query — this is how station coverage
+ * rectangles are indexed for fast overlap queries. */
 typedef struct rt_node {
     int leaf;
     size_t n;
@@ -83,6 +88,10 @@ static double node_enlarge(const rt_node_t* n,
     return rt_area(nx1, ny1, nx2, ny2) - old;
 }
 
+/* The below block uses R-TREE LINEAR SPLIT: pick the two entries that are
+ * farthest apart as seeds, then assign every other entry to whichever group
+ * needs the smaller MBR enlargement to swallow it. This is what keeps the
+ * tree balanced when a node overflows during insert. */
 static void linear_split(rt_node_t* n, rt_node_t* nn) {
     size_t total = n->n;
     size_t seed1 = 0, seed2 = 1;
@@ -149,6 +158,11 @@ static int node_add(rt_node_t* node, double x1, double y1, double x2, double y2,
     return 0;
 }
 
+/* The below block uses R-TREE INSERT WITH SPLIT PROPAGATION: descend by
+ * choosing the child whose MBR needs the LEAST enlargement to fit the new
+ * rect, then re-tighten MBRs on the way back up. If a node overflows, a
+ * sibling bubbles up and the parent absorbs it (possibly splitting too).
+ * That bottom-up split is the R-tree's balancing mechanism. */
 /* Recursively insert a leaf entry (x1,y1,x2,y2,data). Returns sibling via *sib. */
 static int rt_insert(rt_node_t* node,
                       double x1, double y1, double x2, double y2, ds_val_t data,
@@ -218,6 +232,10 @@ static int rects_overlap(double ax1, double ay1, double ax2, double ay2,
     return 1;
 }
 
+/* The below block uses R-TREE SEARCH (descend any overlapping MBR): if the
+ * node's bounding rectangle doesn't intersect the query, the entire subtree
+ * is skipped; otherwise recurse into every child whose MBR overlaps. This is
+ * what makes "which station coverage rectangles touch this viewport?" cheap. */
 static void rt_search(const rt_node_t* n,
                        double x1, double y1, double x2, double y2,
                        sp_rect_t* out, size_t max, size_t* cnt) {
