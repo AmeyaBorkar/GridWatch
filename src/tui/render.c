@@ -511,15 +511,17 @@ static void render_search(const tui_state_t* st) {
     }
     /* Completions. */
     clear_row(COMPLETIONS_ROW, 2, TOTAL_W);
-    move_to(COMPLETIONS_ROW, 3);
-    fg(140, 145, 160);
-    buf_puts(" > ");
-    for (size_t i = 0; i < st->n_completions && i < 5; ++i) {
-        if ((int)i == st->selected_completion) fg(160, 220, 255);
-        else                                   fg(140, 145, 160);
-        buf_printf("%s", st->completions[i]);
+    if (st->n_completions > 0) {
+        move_to(COMPLETIONS_ROW, 3);
         fg(140, 145, 160);
-        if (i + 1 < st->n_completions && i + 1 < 5) buf_puts("  |  ");
+        buf_puts(" > ");
+        for (size_t i = 0; i < st->n_completions && i < 5; ++i) {
+            if ((int)i == st->selected_completion) fg(160, 220, 255);
+            else                                   fg(140, 145, 160);
+            buf_printf("%s", st->completions[i]);
+            fg(140, 145, 160);
+            if (i + 1 < st->n_completions && i + 1 < 5) buf_puts("  |  ");
+        }
     }
     reset_sgr();
 }
