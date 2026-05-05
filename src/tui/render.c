@@ -418,7 +418,7 @@ static void render_stats(const sim_t* sim) {
     stats_line(r++, " avg resp: %5.2fs", mt.avg_response_time);
     move_to(r++, STATS_COL0);
     fg(140, 145, 160);
-    for (int i = 0; i < STATS_W - 2; ++i) buf_puts("\xe2\x94\x80");
+    for (int i = 0; i < STATS_W; ++i) buf_puts("\xe2\x94\x80");
     fg(160, 220, 255);
     stats_line(r++, " Data structures");
     fg(220, 222, 230);
@@ -432,7 +432,7 @@ static void render_stats(const sim_t* sim) {
 
     move_to(r++, STATS_COL0);
     fg(140, 145, 160);
-    for (int i = 0; i < STATS_W - 2; ++i) buf_puts("\xe2\x94\x80");
+    for (int i = 0; i < STATS_W; ++i) buf_puts("\xe2\x94\x80");
     fg(160, 220, 255);
     stats_line(r++, " Activity (last frame)");
     if (g_act.d_dispatch > 0) fg(120, 230, 140);
