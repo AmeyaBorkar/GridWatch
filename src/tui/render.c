@@ -378,6 +378,18 @@ static struct {
     int    initialised;
 } g_act = { 0 };
 
+static void stats_line(int row, const char* fmt, ...) {
+    char tmp[80];
+    va_list ap; va_start(ap, fmt);
+    int n = vsnprintf(tmp, sizeof(tmp), fmt, ap);
+    va_end(ap);
+    if (n < 0) n = 0;
+    if (n > STATS_W) n = STATS_W;
+    move_to(row, STATS_COL0);
+    buf_write(tmp, (size_t)n);
+    for (int i = n; i < STATS_W; ++i) buf_puts(" ");
+}
+
 static void render_stats(const sim_t* sim) {
     sim_metrics_t mt; sim_metrics(sim, &mt);
 
@@ -397,44 +409,44 @@ static void render_stats(const sim_t* sim) {
 
     int r = 2;
     fg(220, 222, 230);
-    move_to(r++, STATS_COL0); buf_printf(" t    : %7.1fs       ", mt.sim_time);
-    move_to(r++, STATS_COL0); buf_printf(" inc  : %3zu / %3zu res   ",
-                                         mt.total_incidents, mt.resolved_incidents);
-    move_to(r++, STATS_COL0); buf_printf(" pend : %3zu             ", mt.pending_incidents);
-    move_to(r++, STATS_COL0); buf_printf(" units: %3zu (%zu idle)   ",
-                                         mt.active_units, mt.idle_units);
-    move_to(r++, STATS_COL0); buf_printf(" avg resp: %5.2fs        ", mt.avg_response_time);
+    stats_line(r++, " t    : %7.1fs", mt.sim_time);
+    stats_line(r++, " inc  : %3zu / %3zu res",
+               mt.total_incidents, mt.resolved_incidents);
+    stats_line(r++, " pend : %3zu", mt.pending_incidents);
+    stats_line(r++, " units: %3zu (%zu idle)",
+               mt.active_units, mt.idle_units);
+    stats_line(r++, " avg resp: %5.2fs", mt.avg_response_time);
     move_to(r++, STATS_COL0);
     fg(140, 145, 160);
     for (int i = 0; i < STATS_W - 2; ++i) buf_puts("\xe2\x94\x80");
     fg(160, 220, 255);
-    move_to(r++, STATS_COL0); buf_puts(" Data structures         ");
+    stats_line(r++, " Data structures");
     fg(220, 222, 230);
-    move_to(r++, STATS_COL0); buf_printf(" comp    : %4zu         ", mt.road_components);
-    move_to(r++, STATS_COL0); buf_printf(" PQ ops  : %6zu       ", mt.pq_operations);
-    move_to(r++, STATS_COL0); buf_printf(" Huffman : %5.2f        ", mt.huffman_ratio);
-    move_to(r++, STATS_COL0); buf_printf(" SA sfx  : %6zu       ", mt.sa_suffix_count);
-    move_to(r++, STATS_COL0); buf_printf(" Dispatch: %6zu       ", mt.dispatch_calls);
-    move_to(r++, STATS_COL0); buf_printf(" log B   : %6zu       ", mt.log_bytes);
-    move_to(r++, STATS_COL0); buf_printf(" log B(H): %6zu       ", mt.log_bytes_huffman);
+    stats_line(r++, " comp    : %4zu", mt.road_components);
+    stats_line(r++, " PQ ops  : %6zu", mt.pq_operations);
+    stats_line(r++, " Huffman : %5.2f", mt.huffman_ratio);
+    stats_line(r++, " SA sfx  : %6zu", mt.sa_suffix_count);
+    stats_line(r++, " Dispatch: %6zu", mt.dispatch_calls);
+    stats_line(r++, " log B   : %6zu", mt.log_bytes);
+    stats_line(r++, " log B(H): %6zu", mt.log_bytes_huffman);
 
     move_to(r++, STATS_COL0);
     fg(140, 145, 160);
     for (int i = 0; i < STATS_W - 2; ++i) buf_puts("\xe2\x94\x80");
     fg(160, 220, 255);
-    move_to(r++, STATS_COL0); buf_puts(" Activity (last frame)   ");
+    stats_line(r++, " Activity (last frame)");
     if (g_act.d_dispatch > 0) fg(120, 230, 140);
     else                      fg(140, 145, 160);
-    move_to(r++, STATS_COL0); buf_printf(" + dispatch : %3zu       ", g_act.d_dispatch);
+    stats_line(r++, " + dispatch : %3zu", g_act.d_dispatch);
     if (g_act.d_pq > 0) fg(120, 200, 255);
     else                fg(140, 145, 160);
-    move_to(r++, STATS_COL0); buf_printf(" + PQ ops   : %3zu       ", g_act.d_pq);
+    stats_line(r++, " + PQ ops   : %3zu", g_act.d_pq);
     if (g_act.d_total > 0) fg(245, 160, 70);
     else                   fg(140, 145, 160);
-    move_to(r++, STATS_COL0); buf_printf(" + spawned  : %3zu       ", g_act.d_total);
+    stats_line(r++, " + spawned  : %3zu", g_act.d_total);
     if (g_act.d_resolved > 0) fg(120, 230, 140);
     else                      fg(140, 145, 160);
-    move_to(r++, STATS_COL0); buf_printf(" + resolved : %3zu       ", g_act.d_resolved);
+    stats_line(r++, " + resolved : %3zu", g_act.d_resolved);
     reset_sgr();
 }
 
