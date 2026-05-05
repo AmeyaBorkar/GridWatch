@@ -9,6 +9,12 @@
 #define BV_SUPER_BLOCKS  8u                              /* 8 blocks per superblock */
 #define BV_SUPER_BITS    (BV_BLOCK_BITS * BV_SUPER_BLOCKS) /* 4096 */
 
+/* Succinct Bit Vector with two-level rank index. The raw bits live in `words`;
+ * `super_rank` stores cumulative 1-counts every 4096 bits, and `block_rank`
+ * stores the offset within each superblock every 512 bits. Together they let
+ * rank1 answer in O(1) (at most 8 popcounts) instead of scanning the whole
+ * vector — the classic succinct trick. Used here for the per-node
+ * has_incident flag so we can map node id <-> incident-bit index quickly. */
 struct misc_bv {
     uint64_t* words;
     size_t    n_bits;
@@ -72,6 +78,10 @@ DS_API int misc_bv_get(const misc_bv_t* b, size_t idx) {
     return (int)((b->words[w] >> o) & 1u);
 }
 
+/* Build the two-level rank summary in one linear pass — populating
+ * super_rank[s] (cumulative ones at start of superblock s) and block_rank[bl]
+ * (ones since the start of its superblock). Must be called once before any
+ * rank/select query; mutating bits invalidates the summary. */
 DS_API void misc_bv_build(misc_bv_t* b) {
     if (!b) return;
     size_t n_blocks = (b->n_bits + BV_BLOCK_BITS - 1) / BV_BLOCK_BITS;
@@ -108,6 +118,9 @@ DS_API void misc_bv_build(misc_bv_t* b) {
     b->built = 1;
 }
 
+/* The below block uses two-level rank1 to count the 1-bits in [0, idx).
+ * Read super_rank for the superblock, add block_rank for the block, then
+ * popcount the (at most 8) leftover words. O(1) regardless of bit-vector size. */
 DS_API size_t misc_bv_rank1(const misc_bv_t* b, size_t idx) {
     if (!b || !b->built) return 0;
     if (idx >= b->n_bits) return b->total_ones;
@@ -138,6 +151,10 @@ DS_API size_t misc_bv_rank1(const misc_bv_t* b, size_t idx) {
     return r;
 }
 
+/* The below block uses select1 — find the position of the k-th set bit — by
+ * binary-searching the superblock summary, then linearly scanning at most 8
+ * blocks, 8 words and 64 bits. Inverse of rank1; lets us jump from "k-th
+ * incident node" back to its node id in constant time. */
 DS_API size_t misc_bv_select1(const misc_bv_t* b, size_t k) {
     if (!b || !b->built) return (size_t)-1;
     if (k >= b->total_ones) return (size_t)-1;

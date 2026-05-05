@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* DAWG state: a node in the minimal deterministic acyclic word automaton.
+ * Like a trie node but with a packed transition list, and once finalized it
+ * is interned in a `register` so equivalent subgraphs are shared. The result
+ * is a minimal recogniser whose state count is far smaller than a trie's. */
 typedef struct dawg_state {
     int terminal;
     int n_trans;
@@ -95,6 +99,11 @@ static dawg_state_t* reg_find_or_add(str_dawg_t* d, dawg_state_t* s) {
     return s;
 }
 
+/* The below block uses incremental DAWG minimisation (replace-or-register).
+ * After a subtree is final, we hash its shape; if an equivalent state already
+ * exists in the register we replace the new pointer with it, merging the two
+ * suffix-equivalent branches. This is the key trick that gives the DAWG its
+ * tiny memory footprint compared to a plain trie. */
 /* Replace-or-register on last child of `s`. */
 static void replace_or_register(str_dawg_t* d, dawg_state_t* s) {
     dawg_state_t* child = ds_last_child(s);
@@ -138,6 +147,10 @@ void str_dawg_destroy(str_dawg_t* d) {
     free(d);
 }
 
+/* DAWG incremental insertion (Daciuk et al.): inputs must be sorted. We share
+ * the longest common prefix with the previous word, run replace-or-register
+ * on the branch we are abandoning (it can no longer change), and only then
+ * append the divergent suffix as fresh states. */
 ds_status_t str_dawg_add(str_dawg_t* d, const char* word) {
     if (!d || !word) return DS_ERR_INVALID;
     if (d->finished) return DS_ERR_INVALID;
@@ -185,6 +198,9 @@ ds_status_t str_dawg_add(str_dawg_t* d, const char* word) {
     return DS_OK;
 }
 
+/* Finalise the DAWG: minimise the rightmost remaining branch (no further
+ * sorted inserts will touch it) so the entire automaton is in canonical
+ * minimal form. After this no more words may be added. */
 ds_status_t str_dawg_finish(str_dawg_t* d) {
     if (!d) return DS_ERR_INVALID;
     if (d->finished) return DS_OK;
@@ -206,6 +222,10 @@ ds_status_t str_dawg_finish(str_dawg_t* d) {
     return DS_OK;
 }
 
+/* DAWG accept/reject lookup: walk the automaton consuming one input byte per
+ * transition. Word is accepted iff we land on a terminal state. The merged
+ * suffixes mean the very same state may be visited by many different words —
+ * which is exactly what makes the recogniser memory-efficient. */
 int str_dawg_contains(const str_dawg_t* d, const char* word) {
     if (!d || !word) return 0;
     const dawg_state_t* cur = d->root;

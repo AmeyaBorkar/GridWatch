@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* BK-tree edge: each edge is *labelled by an integer* — the Levenshtein
+ * distance from parent word to child word. The metric structure of edit
+ * distance (it is a true metric) is what lets the tree make sense at all. */
 typedef struct bk_edge {
     int dist;
     struct bk_node* child;
@@ -20,6 +23,9 @@ struct str_fuzzy {
 
 static int imin(int a, int b) { return a < b ? a : b; }
 
+/* Classic dynamic-programming Levenshtein edit distance using two rolling
+ * rows instead of a full DP matrix. Cost = min(insert, delete, substitute).
+ * This is the metric the BK-tree organises words by. */
 static int levenshtein(const char* a, const char* b) {
     size_t la = strlen(a), lb = strlen(b);
     if (la == 0) return (int)lb;
@@ -70,6 +76,10 @@ void str_fuzzy_destroy(str_fuzzy_t* f) {
     free(f);
 }
 
+/* The below block uses BK-tree insertion: walk down following the edge whose
+ * label equals dist(current_node, new_word); if no such edge exists, attach
+ * the new word as a fresh child under that distance. This builds the
+ * fuzzy-search index used to forgive typos in dispatcher input. */
 ds_status_t str_fuzzy_add(str_fuzzy_t* f, const char* word) {
     if (!f || !word) return DS_ERR_INVALID;
     if (!f->root) {
@@ -100,6 +110,11 @@ ds_status_t str_fuzzy_add(str_fuzzy_t* f, const char* word) {
     }
 }
 
+/* The below block uses the triangle inequality on edit distance to prune the
+ * BK-tree search. After computing d = dist(node, query), only children whose
+ * edge label lies in [d - max_edits, d + max_edits] can possibly contain
+ * matches — every other subtree is skipped. That pruning is what makes the
+ * "polise -> police" lookup fast even on a large dictionary. */
 static void bk_search(const bk_node_t* n, const char* q, int max_edits,
                       char** out, size_t max, size_t* count) {
     if (!n || *count >= max) return;

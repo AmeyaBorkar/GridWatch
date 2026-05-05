@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Suffix Array bundle: `sa` holds the indices of every suffix of `text` sorted
+ * lexicographically, and `lcp` holds the longest-common-prefix between
+ * adjacent suffixes in that order. Together they support fast substring
+ * queries over the radio log. */
 struct str_sa {
     char* text;     /* owned copy */
     size_t n;
@@ -19,6 +23,10 @@ static int pd_cmp(const void* a, const void* b) {
     return 0;
 }
 
+/* The below block uses Prefix-Doubling Suffix-Array construction. At step k
+ * each suffix is represented by the rank of its first k chars and the rank of
+ * its k-th-shifted suffix; sorting these (rank, rank) pairs doubles the
+ * resolved prefix length each round, giving O(n log^2 n) construction. */
 static int build_sa(const unsigned char* s, size_t n, int* sa) {
     if (n == 0) return 0;
     int* rank = malloc(n * sizeof(int));
@@ -51,6 +59,10 @@ static int build_sa(const unsigned char* s, size_t n, int* sa) {
     return 0;
 }
 
+/* The below block uses Kasai's algorithm to compute the LCP array in O(n).
+ * Trick: when we move from suffix i to suffix i+1, the LCP can drop by at most
+ * 1, so the running counter `h` only ever decreases by one per step — keeping
+ * total work linear instead of quadratic. */
 static int build_lcp_kasai(const unsigned char* s, size_t n, const int* sa, int* lcp) {
     if (n == 0) return 0;
     int* inv = malloc(n * sizeof(int));
@@ -72,6 +84,9 @@ static int build_lcp_kasai(const unsigned char* s, size_t n, const int* sa, int*
     return 0;
 }
 
+/* Build entry point: copies the text, runs the prefix-doubling sort, then the
+ * Kasai LCP pass. Called periodically by the radio log when the buffer grows
+ * enough to make the existing index stale. */
 str_sa_t* str_sa_build(const char* text, size_t n) {
     if (!text) return NULL;
     str_sa_t* s = calloc(1, sizeof(*s));
@@ -142,6 +157,10 @@ static size_t ub(const str_sa_t* s, const char* pat, size_t m) {
     return lo;
 }
 
+/* The below block uses Suffix-Array binary search for substring queries.
+ * Because suffixes are sorted, every occurrence of the pattern lies in a
+ * contiguous SA range [lb, ub); a single lookup at lb is enough to confirm
+ * presence. This powers fast "did anyone say X?" scans of the radio log. */
 int str_sa_contains(const str_sa_t* s, const char* pattern, size_t m) {
     if (!s || !pattern || m == 0 || s->n == 0) return 0;
     size_t l = lb(s, pattern, m);
@@ -151,6 +170,9 @@ int str_sa_contains(const str_sa_t* s, const char* pattern, size_t m) {
     return memcmp(s->text + suf, pattern, m) == 0 ? 1 : 0;
 }
 
+/* Suffix-Array occurrence count: the number of suffixes starting with the
+ * pattern equals the size of the SA range [lb, ub). Lets the dispatcher count
+ * how many times a phrase appeared in the log in O(m log n). */
 size_t str_sa_count(const str_sa_t* s, const char* pattern, size_t m) {
     if (!s || !pattern || m == 0 || s->n == 0) return 0;
     size_t l = lb(s, pattern, m);

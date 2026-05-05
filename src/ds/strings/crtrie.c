@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Compressed Radix Trie node: instead of a per-byte fan-out, each edge carries
+ * a multi-character `label` so single-child chains collapse into one node.
+ * This drops memory dramatically when the dictionary has long shared
+ * suffixes/prefixes — perfect for the dispatcher's street-name table. */
 typedef struct cr_node {
     char* label;          /* edge label to this node (malloc) */
     size_t llen;
@@ -75,6 +79,10 @@ void str_crtrie_destroy(str_crtrie_t* t) {
     free(t);
 }
 
+/* The below block uses Radix-Trie insertion with edge splitting. When the new
+ * key only shares a prefix of an existing edge, the edge is broken into a
+ * shared head plus two divergent tails — preserving the compressed invariant
+ * (no node has exactly one child) while admitting the new word. */
 ds_status_t str_crtrie_insert(str_crtrie_t* t, const char* word, ds_val_t v) {
     if (!t || !word) return DS_ERR_INVALID;
     const char* rem = word;
@@ -150,6 +158,9 @@ ds_status_t str_crtrie_insert(str_crtrie_t* t, const char* word, ds_val_t v) {
     return DS_OK;
 }
 
+/* Radix-Trie search: at each node, pick the child whose edge label starts with
+ * the next remaining char and consume the whole label in one step (memcmp).
+ * Failing label match means absence — no per-character traversal needed. */
 int str_crtrie_contains(const str_crtrie_t* t, const char* word) {
     if (!t || !word) return 0;
     const char* rem = word;

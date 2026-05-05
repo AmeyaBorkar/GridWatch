@@ -8,6 +8,11 @@ static int cmp_strptr(const void* a, const void* b) {
     return strcmp(*sa, *sb);
 }
 
+/* The below block wires the four string indexes into the simulator at startup:
+ * an ASCII Trie and a Compressed Radix Trie (both for prefix autocomplete on
+ * street names), a DAWG (compact membership recogniser for street tokens),
+ * and a BK-tree (typo-tolerant fuzzy search). Each DS gets its own copy of
+ * the dictionary so a query can be routed to whichever index fits the intent. */
 int sim_search_init(struct sim* S) {
     S->trie   = str_trie_create();
     S->crtrie = str_crtrie_create();
@@ -30,6 +35,9 @@ int sim_search_init(struct sim* S) {
     }
 
     /* DAWG: needs sorted unique input (the individual street words). */
+    /* DAWG construction requires lexicographically-sorted, deduplicated input
+     * because its incremental minimisation only finalises a branch once it
+     * knows no later word will descend into it. */
     const char* sorted[SIM_STREET_POOL_SZ];
     for (int i = 0; i < SIM_STREET_POOL_SZ; i++) sorted[i] = SIM_STREETS[i];
     qsort(sorted, SIM_STREET_POOL_SZ, sizeof(sorted[0]), cmp_strptr);

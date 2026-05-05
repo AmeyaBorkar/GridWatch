@@ -5,6 +5,10 @@
 
 #define TRIE_FAN 128
 
+/* ASCII Trie node: a fan-out array indexes one child per possible byte (here 128
+ * for printable ASCII). `terminal` marks the end of an inserted word. This
+ * straight-array layout gives O(L) lookup independent of the dictionary size,
+ * which is what makes street-name autocomplete instantaneous in the dispatcher. */
 typedef struct trie_node {
     struct trie_node* kids[TRIE_FAN];
     ds_val_t val;
@@ -40,6 +44,10 @@ void str_trie_destroy(str_trie_t* t) {
     free(t);
 }
 
+/* The below block uses Trie insertion to walk the existing path letter-by-letter
+ * and create a fresh chain of nodes for any missing suffix. Building the
+ * dictionary this way lets later lookups reuse shared prefixes between street
+ * names so the autocomplete index stays compact. */
 ds_status_t str_trie_insert(str_trie_t* t, const char* word, ds_val_t v) {
     if (!t || !word) return DS_ERR_INVALID;
     trie_node_t* cur = t->root;
@@ -56,6 +64,9 @@ ds_status_t str_trie_insert(str_trie_t* t, const char* word, ds_val_t v) {
     return DS_OK;
 }
 
+/* Trie membership test: descend from the root following one byte per edge.
+ * If any edge is missing the word is absent; otherwise it exists iff we land
+ * on a terminal node. Used to validate that a typed street name is real. */
 int str_trie_contains(const str_trie_t* t, const char* word) {
     if (!t || !word) return 0;
     const trie_node_t* cur = t->root;
@@ -67,6 +78,9 @@ int str_trie_contains(const str_trie_t* t, const char* word) {
 }
 
 /* DFS collect helper */
+/* Trie completion enumeration: a depth-first walk from the prefix node that
+ * appends every terminal it finds. The pre-order traversal yields completions
+ * in lexicographic order, which is what the autocomplete dropdown shows. */
 static void collect(const trie_node_t* n, char* buf, size_t depth, size_t cap,
                     char** out, size_t max, size_t* count) {
     if (!n || *count >= max) return;
@@ -88,6 +102,9 @@ static void collect(const trie_node_t* n, char* buf, size_t depth, size_t cap,
     }
 }
 
+/* The below block uses Trie prefix lookup to first walk down the prefix path,
+ * then DFS-collects all terminals beneath it. This is the heart of street-name
+ * autocomplete: type "Mai" and get every street starting with those letters. */
 size_t str_trie_prefix(const str_trie_t* t, const char* prefix,
                        char** out, size_t max) {
     if (!t || !prefix || !out || max == 0) return 0;
