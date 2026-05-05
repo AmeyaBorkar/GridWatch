@@ -30,7 +30,7 @@
 #define SEARCH_INPUT_ROW  (DIV2_ROW + 1)                   /* 31 */
 #define COMPLETIONS_ROW   (SEARCH_INPUT_ROW + 1)           /* 32 */
 #define BOX_BOTTOM_ROW    (COMPLETIONS_ROW + 1)            /* 33 */
-#define HINT_ROW          SEARCH_INPUT_ROW
+#define HINT_ROW          (BOX_BOTTOM_ROW + 1)              /* 34 — outside the frame */
 
 static char   g_buf[TUI_BUF_CAP];
 static size_t g_len = 0;
@@ -513,9 +513,8 @@ static void render_search(const tui_state_t* st) {
 }
 
 static void render_hint(const sim_t* sim, double spawn_rate) {
-    move_to(HINT_ROW + 1, 1);
-    clear_row(HINT_ROW + 1, 1, TOTAL_W);
-    move_to(HINT_ROW + 1, 1);
+    clear_row(HINT_ROW, 1, TOTAL_W + 1);
+    move_to(HINT_ROW, 1);
     fg(140, 145, 160);
     buf_puts(" Map: ");
     fg(240, 90, 100);  buf_puts("H/A");
