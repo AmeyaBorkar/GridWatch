@@ -595,7 +595,7 @@ void tui_render_frame(const sim_t* sim, const tui_state_t* st, double spawn_rate
         render_search(st);
         render_hint(sim, spawn_rate);
     }
-    move_to(HINT_ROW + 2, 1);
+    move_to(HINT_ROW + 1, 1);
     fwrite(g_buf, 1, g_len, stdout);
     fflush(stdout);
 }
